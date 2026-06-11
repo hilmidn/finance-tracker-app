@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
 
 export default function TransactionForm({ categories, onSubmit, onClose }) {
   const [type, setType] = useState('pengeluaran')
@@ -14,7 +14,6 @@ export default function TransactionForm({ categories, onSubmit, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!amount || !categoryId) return
-
     setSubmitting(true)
     await onSubmit({
       type,
@@ -28,46 +27,49 @@ export default function TransactionForm({ categories, onSubmit, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
-      <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold">Tambah Transaksi</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
-            <X size={22} />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div 
+        className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-gray-900">Tambah Transaksi</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={20} className="text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Type toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-gray-200">
+          {/* Type toggle — modern pill style */}
+          <div className="flex rounded-xl bg-gray-50 p-1 border border-gray-100">
             <button
               type="button"
               onClick={() => { setType('pengeluaran'); setCategoryId('') }}
-              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                type === 'pengeluaran' ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-600'
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium rounded-lg transition-all ${
+                type === 'pengeluaran' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500'
               }`}
             >
-              Pengeluaran
+              <ArrowDownToLine size={16} /> Keluar
             </button>
             <button
               type="button"
               onClick={() => { setType('pemasukan'); setCategoryId('') }}
-              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                type === 'pemasukan' ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-600'
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium rounded-lg transition-all ${
+                type === 'pemasukan' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'
               }`}
             >
-              Pemasukan
+              <ArrowUpFromLine size={16} /> Masuk
             </button>
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Kategori</label>
             <select
               value={categoryId}
               onChange={e => setCategoryId(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Pilih kategori...</option>
               {catList.map(cat => (
@@ -78,46 +80,46 @@ export default function TransactionForm({ categories, onSubmit, onClose }) {
 
           {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah (Rp)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Jumlah (Rp)</label>
             <input
               type="number"
               inputMode="numeric"
               min="1"
               value={amount}
               onChange={e => setAmount(e.target.value)}
-              placeholder="50000"
+              placeholder="0"
               required
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
-          {/* Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Note */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
-            <input
-              type="text"
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder="Makan siang..."
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+          {/* Date + Note row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Tanggal</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Catatan</label>
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Opsional..."
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
             {submitting ? 'Menyimpan...' : 'Simpan'}
           </button>

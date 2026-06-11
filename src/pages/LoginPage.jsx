@@ -12,71 +12,65 @@ export default function LoginPage({ onSignIn, onSignUp }) {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     const err = isSignUp ? await onSignUp(email, password) : await onSignIn(email, password)
-
     if (err) {
       setError(err.message)
       setLoading(false)
     }
-    // If success, the auth listener in useAuth will update user state
   }
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6 bg-gradient-to-b from-indigo-50 to-white">
+    <div className="min-h-dvh flex flex-col items-center justify-center px-6 bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-800">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl mb-4">
-            <Wallet size={32} className="text-indigo-600" />
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur rounded-2xl mb-5 border border-white/20">
+            <Wallet size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Catatan Keuangan</h1>
-          <p className="text-sm text-gray-500 mt-1">Pantau pemasukan & pengeluaranmu</p>
+          <h1 className="text-2xl font-bold text-white">Catatan Keuangan</h1>
+          <p className="text-sm text-indigo-200 mt-1">Pantau pemasukan & pengeluaranmu</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="email@example.com"
+              placeholder="Email"
               required
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3.5 text-sm text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Min 6 karakter"
+              placeholder="Password"
               minLength={6}
               required
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3.5 text-sm text-white placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-red-500 bg-red-50 rounded-xl px-3 py-2">{error}</p>
+            <p className="text-sm text-red-300 bg-red-900/30 rounded-xl px-4 py-2.5 text-center">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="w-full bg-white text-indigo-900 rounded-xl py-3.5 font-semibold hover:bg-indigo-50 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
             {loading ? 'Tunggu...' : isSignUp ? 'Daftar' : 'Masuk'}
           </button>
         </form>
 
-        <p className="text-center mt-6 text-sm text-gray-500">
+        <p className="text-center mt-8 text-sm text-indigo-300">
           {isSignUp ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
           <button
             onClick={() => { setIsSignUp(!isSignUp); setError('') }}
-            className="text-indigo-600 font-medium hover:underline"
+            className="text-white font-medium hover:underline"
           >
             {isSignUp ? 'Masuk' : 'Daftar'}
           </button>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, LogOut } from 'lucide-react'
+import { Plus, Trash2, LogOut, Tag } from 'lucide-react'
 import { useCategories } from '../hooks/useCategories'
 
 export default function SettingsPage({ userId, onSignOut }) {
@@ -21,23 +21,23 @@ export default function SettingsPage({ userId, onSignOut }) {
   const catList = categories[activeTab] || []
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="space-y-5">
+      <h1 className="text-xl font-bold">Settings</h1>
 
       {/* Tab toggle */}
-      <div className="flex rounded-xl overflow-hidden border border-gray-200">
+      <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50 p-1">
         <button
           onClick={() => setActiveTab('pengeluaran')}
-          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'pengeluaran' ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-600'
+          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'pengeluaran' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500'
           }`}
         >
           Pengeluaran
         </button>
         <button
           onClick={() => setActiveTab('pemasukan')}
-          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'pemasukan' ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-600'
+          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
+            activeTab === 'pemasukan' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500'
           }`}
         >
           Pemasukan
@@ -45,20 +45,33 @@ export default function SettingsPage({ userId, onSignOut }) {
       </div>
 
       {/* Category list */}
-      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-        {catList.map(cat => (
-          <div key={cat.id} className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm font-medium text-gray-800">{cat.name}</span>
-            <button
-              onClick={() => deleteCategory(cat.id, activeTab)}
-              className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
-            >
-              <Trash2 size={16} />
-            </button>
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+        {catList.length === 0 ? (
+          <div className="text-center py-10">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-2xl mb-3">
+              <Tag size={20} className="text-gray-400" />
+            </div>
+            <p className="text-gray-400 text-sm">Belum ada kategori</p>
           </div>
-        ))}
-        {catList.length === 0 && (
-          <p className="text-center text-gray-400 py-6 text-sm">Belum ada kategori</p>
+        ) : (
+          catList.map(cat => (
+            <div key={cat.id} className="flex items-center justify-between px-4 py-3.5">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                  activeTab === 'pengeluaran' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'
+                }`}>
+                  {cat.name[0]}
+                </div>
+                <span className="text-sm font-medium text-gray-800">{cat.name}</span>
+              </div>
+              <button
+                onClick={() => deleteCategory(cat.id, activeTab)}
+                className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))
         )}
       </div>
 
@@ -71,17 +84,17 @@ export default function SettingsPage({ userId, onSignOut }) {
             onChange={e => setNewCat(e.target.value)}
             placeholder="Nama kategori baru"
             autoFocus
-            className="flex-1 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
           />
           <button
             onClick={handleAdd}
-            className="bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700"
+            className="bg-indigo-600 text-white px-4 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
           >
             Simpan
           </button>
           <button
             onClick={() => { setShowAdd(false); setNewCat('') }}
-            className="px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100"
+            className="px-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors"
           >
             Batal
           </button>
@@ -89,7 +102,7 @@ export default function SettingsPage({ userId, onSignOut }) {
       ) : (
         <button
           onClick={() => setShowAdd(true)}
-          className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors active:scale-[0.98]"
         >
           <Plus size={18} /> Tambah Kategori
         </button>
@@ -98,7 +111,7 @@ export default function SettingsPage({ userId, onSignOut }) {
       {/* Sign out */}
       <button
         onClick={onSignOut}
-        className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mt-8"
+        className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mt-8"
       >
         <LogOut size={18} /> Keluar
       </button>
