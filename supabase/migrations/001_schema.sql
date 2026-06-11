@@ -1,4 +1,4 @@
--- Finance App Schema (v3)
+-- Finance App Schema (v4)
 -- Jalankan ulang SQL ini. Aman di-run ulang (idempotent).
 
 -- 1. Categories
@@ -78,3 +78,29 @@ CREATE POLICY "Users can delete own transactions"
 -- 3. Hapus trigger lama yang bermasalah (kalo ada)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS handle_new_user();
+
+-- 4. RPC: seed default categories — panggil dari client pas signup selesai
+-- SECURITY DEFINER = jalan sebagai owner tabel, bypass RLS
+CREATE OR REPLACE FUNCTION seed_default_categories(p_user_id UUID)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO categories (name, type, user_id) VALUES
+    ('Gaji', 'pemasukan', p_user_id),
+    ('Freelance', 'pemasukan', p_user_id),
+    ('Investasi', 'pemasukan', p_user_id),
+    ('Lainnya', 'pemasukan', p_user_id),
+    ('Makan', 'pengeluaran', p_user_id),
+    ('Transport', 'pengeluaran', p_user_id),
+    ('Tagihan', 'pengeluaran', p_user_id),
+    ('Hiburan', 'pengeluaran', p_user_id),
+    ('Belanja', 'pengeluaran', p_user_id),
+    ('Kesehatan', 'pengeluaran', p_user_id),
+    ('Pendidikan', 'pengeluaran', p_user_id),
+    ('Lainnya', 'pengeluaran', p_user_id)
+  ON CONFLICT (user_id, name, type) DO NOTHING;
+END;
+$$;
