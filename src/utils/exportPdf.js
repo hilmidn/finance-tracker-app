@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import { autoTable } from 'jspdf-autotable'
 
 const COLORS = {
   red: [239, 68, 68],
@@ -61,7 +61,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
 
     const body = data.map(item => columns.map(col => col.accessor(item)))
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: startY + 4,
       head: [columns.map(c => c.label)],
       body,
@@ -74,7 +74,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
         fontSize: 8,
       },
       columnStyles: columns.reduce((acc, col, idx) => {
-        acc[idx] = { cellWidth: col.width }
+        if (col.width !== 'auto') acc[idx] = { cellWidth: col.width }
         return acc
       }, {}),
       margin: { left: 14, right: 14 },
@@ -143,7 +143,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
     ['Sisa', `Rp ${saldo.toLocaleString('id-ID')}`],
   ]
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [],
     body: summaryData.map(([label, val]) => [label, val]),
