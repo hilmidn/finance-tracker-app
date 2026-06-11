@@ -24,11 +24,7 @@ export function useAuth() {
   }, [])
 
   const signUp = useCallback(async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (!error && data.user) {
-      // Seed kategori lewat RPC — aman, dijamin 1x doang (ON CONFLICT DO NOTHING)
-      await supabase.rpc('seed_default_categories', { p_user_id: data.user.id })
-    }
+    const { error } = await supabase.auth.signUp({ email, password })
     return error
   }, [])
 

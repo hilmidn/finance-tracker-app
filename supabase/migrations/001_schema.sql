@@ -1,4 +1,4 @@
--- Finance App Schema (v4)
+-- Finance App Schema (v5)
 -- Jalankan ulang SQL ini. Aman di-run ulang (idempotent).
 
 -- 1. Categories
@@ -75,12 +75,40 @@ CREATE POLICY "Users can delete own transactions"
   ON transactions FOR DELETE
   USING (auth.uid() = user_id);
 
--- 3. Hapus trigger lama yang bermasalah (kalo ada)
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS handle_new_user();
+-- 3. Trigger auto-seed kategori pas user baru dibuat
+-- search_path wajib diset biar trigger bisa akses public.categories
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.categories (name, type, user_id) VALUES
+    ('Gaji', 'pemasukan', NEW.id),
+    ('Freelance', 'pemasukan', NEW.id),
+    ('Investasi', 'pemasukan', NEW.id),
+    ('Lainnya', 'pemasukan', NEW.id),
+    ('Makan', 'pengeluaran', NEW.id),
+    ('Transport', 'pengeluaran', NEW.id),
+    ('Tagihan', 'pengeluaran', NEW.id),
+    ('Hiburan', 'pengeluaran', NEW.id),
+    ('Belanja', 'pengeluaran', NEW.id),
+    ('Kesehatan', 'pengeluaran', NEW.id),
+    ('Pendidikan', 'pengeluaran', NEW.id),
+    ('Lainnya', 'pengeluaran', NEW.id)
+  ON CONFLICT (user_id, name, type) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
 
--- 4. RPC: seed default categories — panggil dari client pas signup selesai
--- SECURITY DEFINER = jalan sebagai owner tabel, bypass RLS
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+
+-- 4. RPC fallback (buat seed manual kalo perlu)
 CREATE OR REPLACE FUNCTION seed_default_categories(p_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
