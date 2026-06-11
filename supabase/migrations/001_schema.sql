@@ -1,8 +1,8 @@
--- Finance App Schema
--- Jalankan SQL ini di Supabase SQL Editor setelah create project
+-- Finance App Schema (v2)
+-- Jalankan ulang SQL ini. Aman di-run ulang (idempotent).
 
 -- 1. Categories
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('pemasukan', 'pengeluaran')),
@@ -29,7 +29,7 @@ CREATE POLICY "Users can delete own categories"
   USING (auth.uid() = user_id);
 
 -- 2. Transactions
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
   id BIGSERIAL PRIMARY KEY,
   type TEXT NOT NULL CHECK (type IN ('pemasukan', 'pengeluaran')),
   category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL,
@@ -58,27 +58,6 @@ CREATE POLICY "Users can delete own transactions"
   ON transactions FOR DELETE
   USING (auth.uid() = user_id);
 
--- 3. Auto-create default categories on signup
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO categories (name, type, user_id) VALUES
-    ('Gaji', 'pemasukan', NEW.id),
-    ('Freelance', 'pemasukan', NEW.id),
-    ('Investasi', 'pemasukan', NEW.id),
-    ('Lainnya', 'pemasukan', NEW.id),
-    ('Makan', 'pengeluaran', NEW.id),
-    ('Transport', 'pengeluaran', NEW.id),
-    ('Tagihan', 'pengeluaran', NEW.id),
-    ('Hiburan', 'pengeluaran', NEW.id),
-    ('Belanja', 'pengeluaran', NEW.id),
-    ('Kesehatan', 'pengeluaran', NEW.id),
-    ('Pendidikan', 'pengeluaran', NEW.id),
-    ('Lainnya', 'pengeluaran', NEW.id);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+-- 3. Hapus trigger lama yang bermasalah (kalo ada)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();

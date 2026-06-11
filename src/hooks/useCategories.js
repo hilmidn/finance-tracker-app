@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
+const DEFAULT_CATEGORIES = {
+  pemasukan: ['Gaji', 'Freelance', 'Investasi', 'Lainnya'],
+  pengeluaran: ['Makan', 'Transport', 'Tagihan', 'Hiburan', 'Belanja', 'Kesehatan', 'Pendidikan', 'Lainnya'],
+}
+
 export function useCategories(userId) {
   const [categories, setCategories] = useState({ pemasukan: [], pengeluaran: [] })
   const [loading, setLoading] = useState(true)
@@ -15,10 +20,31 @@ export function useCategories(userId) {
       .order('name')
 
     if (!error && data) {
-      setCategories({
-        pemasukan: data.filter(c => c.type === 'pemasukan'),
-        pengeluaran: data.filter(c => c.type === 'pengeluaran'),
-      })
+      if (data.length === 0) {
+        // First time — seed default categories
+        const seedData = []
+        for (const [type, names] of Object.entries(DEFAULT_CATEGORIES)) {
+          for (const name of names) {
+            seedData.push({ name, type, user_id: userId })
+          }
+        }
+        const { data: seeded, error: seedErr } = await supabase
+          .from('categories')
+          .insert(seedData)
+          .select()
+
+        if (!seedErr && seeded) {
+          setCategories({
+            pemasukan: seeded.filter(c => c.type === 'pemasukan').sort((a, b) => a.name.localeCompare(b.name)),
+            pengeluaran: seeded.filter(c => c.type === 'pengeluaran').sort((a, b) => a.name.localeCompare(b.name)),
+          })
+        }
+      } else {
+        setCategories({
+          pemasukan: data.filter(c => c.type === 'pemasukan'),
+          pengeluaran: data.filter(c => c.type === 'pengeluaran'),
+        })
+      }
     }
     setLoading(false)
   }, [userId])
