@@ -12,8 +12,9 @@ export default function TransactionsPage({ userId }) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
   const [showForm, setShowForm] = useState(false)
+  const [editTx, setEditTx] = useState(null)
 
-  const { transactions, loading, addTransaction, deleteTransaction, fetchTransactions } = useTransactions(userId)
+  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, fetchTransactions } = useTransactions(userId)
   const { categories } = useCategories(userId)
 
   return (
@@ -21,7 +22,7 @@ export default function TransactionsPage({ userId }) {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Transaksi</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setEditTx(null); setShowForm(true) }}
           className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
         >
           <Plus size={22} />
@@ -48,9 +49,25 @@ export default function TransactionsPage({ userId }) {
         ) : (
           <>
             <div className="text-xs text-gray-400 font-medium px-1">{transactions.length} transaksi</div>
-            {transactions.map(tx => (
-              <TransactionItem key={tx.id} tx={tx} onDelete={deleteTransaction} />
-            ))}
+            {transactions.map(tx => {
+              const key = tx.__type === 'transfer' ? `tr_${tx._raw?.id}` : `tx_${tx.id}`
+              return (
+                <TransactionItem
+                  key={key}
+                  tx={tx}
+                  onDelete={(id, isTransfer) => {
+                    if (isTransfer) deleteTransfer(id)
+                    else deleteTransaction(id)
+                  }}
+                  onEdit={(t) => {
+                    if (t.__type !== 'transfer') {
+                      setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id })
+                      setShowForm(true)
+                    }
+                  }}
+                />
+              )
+            })}
           </>
         )}
       </div>
@@ -58,11 +75,16 @@ export default function TransactionsPage({ userId }) {
       {showForm && (
         <TransactionForm
           categories={categories}
-          onSubmit={async (tx) => {
+          editTx={editTx}
+          onSubmit={editTx ? (data) => {
+            updateTransaction(editTx.id, data)
+            setShowForm(false)
+            setEditTx(null)
+          } : async (tx) => {
             await addTransaction(tx)
             setShowForm(false)
           }}
-          onClose={() => setShowForm(false)}
+          onClose={() => { setShowForm(false); setEditTx(null) }}
         />
       )}
     </div>

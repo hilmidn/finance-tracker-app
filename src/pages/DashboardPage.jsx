@@ -19,10 +19,11 @@ export default function DashboardPage({ user }) {
   const [summary, setSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editTx, setEditTx] = useState(null)
   const [walletBalances, setWalletBalances] = useState({})
   const [walletBalLoading, setWalletBalLoading] = useState(true)
 
-  const { transactions, addTransaction, deleteTransaction, getSummary, fetchTransactions } = useTransactions(userId)
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, getSummary, fetchTransactions } = useTransactions(userId)
   const { wallets, getWalletBalances } = useWallets(userId)
   const { categories } = useCategories(userId)
 
@@ -53,8 +54,18 @@ export default function DashboardPage({ user }) {
     loadSummary()
   }
 
-  const handleDelete = async (id) => {
-    await deleteTransaction(id)
+  const handleEdit = async (tx) => {
+    const { id, ...updates } = tx
+    await updateTransaction(id, updates)
+    loadSummary()
+  }
+
+  const handleDelete = async (id, isTransfer) => {
+    if (isTransfer) {
+      await deleteTransfer(id)
+    } else {
+      await deleteTransaction(id)
+    }
     loadSummary()
   }
 
@@ -76,7 +87,7 @@ export default function DashboardPage({ user }) {
           <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setEditTx(null); setShowForm(true) }}
           className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
         >
           <Plus size={22} />
@@ -158,9 +169,22 @@ export default function DashboardPage({ user }) {
               <p className="text-gray-300 text-xs mt-1">Ketuk + untuk mulai mencatat</p>
             </div>
           ) : (
-            recent.map(tx => (
-              <TransactionItem key={tx.id} tx={tx} onDelete={handleDelete} />
-            ))
+            recent.map(tx => {
+              const key = tx.__type === 'transfer' ? `tr_${tx._raw?.id}` : `tx_${tx.id}`
+              return (
+                <TransactionItem
+                  key={key}
+                  tx={tx}
+                  onDelete={handleDelete}
+                  onEdit={(t) => {
+                    if (t.__type !== 'transfer') {
+                      setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id })
+                      setShowForm(true)
+                    }
+                  }}
+                />
+              )
+            })
           )}
         </div>
       </div>
@@ -168,8 +192,9 @@ export default function DashboardPage({ user }) {
       {showForm && (
         <TransactionForm
           categories={categories}
-          onSubmit={handleAdd}
-          onClose={() => setShowForm(false)}
+          editTx={editTx}
+          onSubmit={editTx ? (data) => handleEdit({ id: editTx.id, ...data }) : handleAdd}
+          onClose={() => { setShowForm(false); setEditTx(null) }}
         />
       )}
     </div>

@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react'
 import { X, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-export default function TransactionForm({ categories, onSubmit, onClose }) {
-  const [type, setType] = useState('pengeluaran')
-  const [categoryId, setCategoryId] = useState('')
-  const [walletId, setWalletId] = useState('')
+export default function TransactionForm({ categories, onSubmit, onClose, editTx }) {
+  const [type, setType] = useState(editTx?.type || 'pengeluaran')
+  const [categoryId, setCategoryId] = useState(editTx?.category_id?.toString() || '')
+  const [walletId, setWalletId] = useState(editTx?.wallet_id?.toString() || '')
   const [wallets, setWallets] = useState([])
-  const [amount, setAmount] = useState('')
-  const [note, setNote] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [amount, setAmount] = useState(editTx?.amount?.toString() || '')
+  const [note, setNote] = useState(editTx?.note || '')
+  const [date, setDate] = useState(editTx?.date || new Date().toISOString().split('T')[0])
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -43,7 +43,9 @@ export default function TransactionForm({ categories, onSubmit, onClose }) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-gray-900">Tambah Transaksi</h2>
+          <h2 className="text-lg font-bold text-gray-900">
+            {editTx ? 'Edit Transaksi' : 'Tambah Transaksi'}
+          </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <X size={20} className="text-gray-500" />
           </button>
@@ -146,7 +148,7 @@ export default function TransactionForm({ categories, onSubmit, onClose }) {
             disabled={submitting}
             className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
-            {submitting ? 'Menyimpan...' : 'Simpan'}
+            {submitting ? 'Menyimpan...' : editTx ? 'Simpan Perubahan' : 'Simpan'}
           </button>
         </form>
       </div>
