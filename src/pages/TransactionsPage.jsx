@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { Plus, ArrowLeftRight } from 'lucide-react'
+import { Plus, ArrowLeftRight, Download } from 'lucide-react'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
 import { useTransactions } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
+import { exportToPDF } from '../utils/exportPdf'
+import { format } from 'date-fns'
+import { id } from 'date-fns/locale'
 
-export default function TransactionsPage({ userId }) {
+export default function TransactionsPage({ user }) {
+  const userId = user.id
   const [month, setMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -17,16 +21,41 @@ export default function TransactionsPage({ userId }) {
   const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, fetchTransactions } = useTransactions(userId)
   const { categories } = useCategories(userId)
 
+  const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
+
+  const handleExport = () => {
+    const savingsTransactions = transactions.filter(
+      t => t.__type === 'transfer' && t._raw?.to_wallet?.is_savings
+    )
+    exportToPDF({
+      transactions,
+      user,
+      monthLabel,
+      savingsTransactions,
+    })
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Transaksi</h1>
-        <button
-          onClick={() => { setEditTx(null); setShowForm(true) }}
-          className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
-        >
-          <Plus size={22} />
-        </button>
+        <div className="flex gap-2">
+          {transactions.length > 0 && (
+            <button
+              onClick={handleExport}
+              className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 active:scale-95 transition-all"
+              title="Export PDF"
+            >
+              <Download size={20} />
+            </button>
+          )}
+          <button
+            onClick={() => { setEditTx(null); setShowForm(true) }}
+            className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
+          >
+            <Plus size={22} />
+          </button>
+        </div>
       </div>
 
       <MonthPicker value={month} onChange={(m) => { setMonth(m); fetchTransactions(m) }} />

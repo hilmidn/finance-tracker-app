@@ -68,8 +68,8 @@ export function useTransactions(userId) {
       .from('transfers')
       .select(`
         *,
-        from_wallet:wallets!from_wallet_id(id, name, type, icon),
-        to_wallet:wallets!to_wallet_id(id, name, type, icon)
+        from_wallet:wallets!from_wallet_id(id, name, type, icon, is_savings),
+        to_wallet:wallets!to_wallet_id(id, name, type, icon, is_savings)
       `)
       .eq('user_id', userId)
 
