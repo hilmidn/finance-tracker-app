@@ -13,7 +13,8 @@ export function useTransactions(userId) {
       .from('transactions')
       .select(`
         *,
-        categories (name)
+        categories (name),
+        wallets (id, name, type, icon)
       `)
       .eq('user_id', userId)
       .order('date', { ascending: false })

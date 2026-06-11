@@ -5,6 +5,8 @@ import { id } from 'date-fns/locale'
 export default function TransactionItem({ tx, onDelete }) {
   const isIncome = tx.type === 'pemasukan'
   const catName = tx.categories?.name || 'Tanpa Kategori'
+  const walletName = tx.wallets?.name
+  const walletIcon = tx.wallets?.icon || '💳'
 
   return (
     <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3.5 shadow-sm border border-gray-100 active:bg-gray-50 transition-colors">
@@ -28,6 +30,7 @@ export default function TransactionItem({ tx, onDelete }) {
         {tx.note && <p className="text-xs text-gray-500 truncate mt-0.5">{tx.note}</p>}
         <p className="text-[11px] text-gray-400 mt-0.5">
           {format(new Date(tx.date), 'dd MMM', { locale: id })}
+          {walletName && <> · {walletIcon} {walletName}</>}
         </p>
       </div>
 

@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeftRight, BarChart3, Settings } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, BarChart3, Wallet, Settings } from 'lucide-react'
 
 const tabs = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transaksi' },
+  { to: '/wallets', icon: Wallet, label: 'Dompet' },
   { to: '/analysis', icon: BarChart3, label: 'Analisis' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

@@ -5,6 +5,7 @@ import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
 import { useTransactions } from '../hooks/useTransactions'
+import { useWallets } from '../hooks/useWallets'
 import { useCategories } from '../hooks/useCategories'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
@@ -18,8 +19,11 @@ export default function DashboardPage({ user }) {
   const [summary, setSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [walletBalances, setWalletBalances] = useState({})
+  const [walletBalLoading, setWalletBalLoading] = useState(true)
 
   const { transactions, addTransaction, deleteTransaction, getSummary, fetchTransactions } = useTransactions(userId)
+  const { wallets, getWalletBalances } = useWallets(userId)
   const { categories } = useCategories(userId)
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
@@ -27,7 +31,15 @@ export default function DashboardPage({ user }) {
   useEffect(() => {
     loadSummary()
     fetchTransactions(month)
+    loadWalletBalances()
   }, [month])
+
+  const loadWalletBalances = async () => {
+    setWalletBalLoading(true)
+    const b = await getWalletBalances()
+    setWalletBalances(b)
+    setWalletBalLoading(false)
+  }
 
   const loadSummary = async () => {
     setSummaryLoading(true)
@@ -94,6 +106,36 @@ export default function DashboardPage({ user }) {
               <TrendingDown size={13} /> Pengeluaran
             </div>
             <p className="text-sm font-bold text-red-500">Rp {summary.pengeluaran.toLocaleString('id-ID')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet Balances Mini */}
+      {wallets.length > 0 && (
+        <div>
+          <h2 className="font-semibold text-gray-800 mb-2">Dompet & Rekening</h2>
+          <div className="space-y-1.5">
+            {wallets.map(w => (
+              <div key={w.id} className="flex items-center justify-between bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">{w.icon || '💳'}</span>
+                  <span className="text-sm font-medium text-gray-700 truncate">{w.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
+                    w.type === 'cash' ? 'bg-green-100 text-green-700' :
+                    w.type === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {w.type === 'cash' ? 'Tunai' : w.type === 'bank' ? 'Bank' : 'E-Wallet'}
+                  </span>
+                </div>
+                {walletBalLoading ? (
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  <span className={`text-sm font-bold ${(walletBalances[w.id] || 0) >= 0 ? 'text-gray-900' : 'text-red-500'}`}>
+                    Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
