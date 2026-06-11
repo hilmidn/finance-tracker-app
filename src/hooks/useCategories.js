@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const DEFAULT_CATEGORIES = {
@@ -9,10 +9,12 @@ const DEFAULT_CATEGORIES = {
 export function useCategories(userId) {
   const [categories, setCategories] = useState({ pemasukan: [], pengeluaran: [] })
   const [loading, setLoading] = useState(true)
+  const seeding = useRef(false)
 
   const fetchCategories = useCallback(async () => {
     if (!userId) return
     setLoading(true)
+
     const { data, error } = await supabase
       .from('categories')
       .select('*')
@@ -20,25 +22,40 @@ export function useCategories(userId) {
       .order('name')
 
     if (!error && data) {
-      if (data.length === 0) {
-        // First time — seed default categories
+      if (data.length === 0 && !seeding.current) {
+        seeding.current = true
         const seedData = []
         for (const [type, names] of Object.entries(DEFAULT_CATEGORIES)) {
           for (const name of names) {
             seedData.push({ name, type, user_id: userId })
           }
         }
-        const { data: seeded, error: seedErr } = await supabase
+        // ignoreDuplicates — aman kalo kebetulan 2x seed
+        const { data: seeded } = await supabase
           .from('categories')
-          .insert(seedData)
+          .insert(seedData, { onConflict: 'user_id,name,type', ignoreDuplicates: true })
           .select()
 
-        if (!seedErr && seeded) {
+        if (seeded && seeded.length > 0) {
           setCategories({
             pemasukan: seeded.filter(c => c.type === 'pemasukan').sort((a, b) => a.name.localeCompare(b.name)),
             pengeluaran: seeded.filter(c => c.type === 'pengeluaran').sort((a, b) => a.name.localeCompare(b.name)),
           })
+        } else {
+          // Seed di-skip (duplicate) — ambil data yang udah ada
+          const { data: existing } = await supabase
+            .from('categories')
+            .select('*')
+            .eq('user_id', userId)
+            .order('name')
+          if (existing) {
+            setCategories({
+              pemasukan: existing.filter(c => c.type === 'pemasukan'),
+              pengeluaran: existing.filter(c => c.type === 'pengeluaran'),
+            })
+          }
         }
+        seeding.current = false
       } else {
         setCategories({
           pemasukan: data.filter(c => c.type === 'pemasukan'),
