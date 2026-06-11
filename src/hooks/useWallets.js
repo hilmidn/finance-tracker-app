@@ -23,11 +23,11 @@ export function useWallets(userId) {
     if (userId) fetchWallets()
   }, [userId, fetchWallets])
 
-  const addWallet = useCallback(async ({ name, type, icon, initial_balance }) => {
+  const addWallet = useCallback(async ({ name, type, icon, initial_balance, is_savings }) => {
     if (!userId) return { error: 'Not authenticated' }
     const { data, error } = await supabase
       .from('wallets')
-      .insert({ name, type, icon, initial_balance: initial_balance || 0, user_id: userId })
+      .insert({ name, type, icon, initial_balance: initial_balance || 0, is_savings: is_savings || false, user_id: userId })
       .select()
       .single()
 

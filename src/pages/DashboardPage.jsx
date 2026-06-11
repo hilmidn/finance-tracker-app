@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, ArrowLeftRight, BarChart3, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, ArrowLeftRight, PiggyBank, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import BalanceCard from '../components/BalanceCard'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
@@ -22,8 +22,10 @@ export default function DashboardPage({ user }) {
   const [editTx, setEditTx] = useState(null)
   const [walletBalances, setWalletBalances] = useState({})
   const [walletBalLoading, setWalletBalLoading] = useState(true)
+  const [monthlySavings, setMonthlySavings] = useState(0)
+  const [savingsLoading, setSavingsLoading] = useState(true)
 
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, getSummary, fetchTransactions } = useTransactions(userId)
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, getSummary, fetchTransactions, getMonthlySavings } = useTransactions(userId)
   const { wallets, getWalletBalances } = useWallets(userId)
   const { categories } = useCategories(userId)
 
@@ -33,6 +35,7 @@ export default function DashboardPage({ user }) {
     loadSummary()
     fetchTransactions(month)
     loadWalletBalances()
+    loadMonthlySavings()
   }, [month])
 
   const loadWalletBalances = async () => {
@@ -40,6 +43,13 @@ export default function DashboardPage({ user }) {
     const b = await getWalletBalances()
     setWalletBalances(b)
     setWalletBalLoading(false)
+  }
+
+  const loadMonthlySavings = async () => {
+    setSavingsLoading(true)
+    const s = await getMonthlySavings(month)
+    setMonthlySavings(s)
+    setSavingsLoading(false)
   }
 
   const loadSummary = async () => {
@@ -52,12 +62,15 @@ export default function DashboardPage({ user }) {
   const handleAdd = async (tx) => {
     await addTransaction(tx)
     loadSummary()
+    loadWalletBalances()
+    loadMonthlySavings()
   }
 
   const handleEdit = async (tx) => {
     const { id, ...updates } = tx
     await updateTransaction(id, updates)
     loadSummary()
+    loadWalletBalances()
   }
 
   const handleDelete = async (id, isTransfer) => {
@@ -67,6 +80,8 @@ export default function DashboardPage({ user }) {
       await deleteTransaction(id)
     }
     loadSummary()
+    loadWalletBalances()
+    loadMonthlySavings()
   }
 
   const recent = transactions.slice(0, 5)
@@ -77,6 +92,13 @@ export default function DashboardPage({ user }) {
   // Morning greeting
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Pagi' : hour < 17 ? 'Siang' : 'Malam'
+
+  // Split wallets
+  const operasionalWallets = wallets.filter(w => !w.is_savings)
+  const savingsWallets = wallets.filter(w => w.is_savings)
+  const totalBalance = Object.values(walletBalances).reduce((s, b) => s + (b || 0), 0)
+  const operasionalBalance = operasionalWallets.reduce((s, w) => s + (walletBalances[w.id] || 0), 0)
+  const savingsBalance = savingsWallets.reduce((s, w) => s + (walletBalances[w.id] || 0), 0)
 
   return (
     <div className="space-y-5">
@@ -103,7 +125,25 @@ export default function DashboardPage({ user }) {
         loading={summaryLoading}
       />
 
-      {/* Quick Stats Pills */}
+      {/* Saldo Breakdown — operasional vs tabungan */}
+      {!walletBalLoading && wallets.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <Wallet size={13} /> Saldo Operasional
+            </div>
+            <p className="text-sm font-bold text-gray-900">Rp {operasionalBalance.toLocaleString('id-ID')}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-amber-100 p-3 shadow-sm">
+            <div className="flex items-center gap-1.5 text-amber-600 text-xs mb-1">
+              <PiggyBank size={13} /> Tabungan
+            </div>
+            <p className="text-sm font-bold text-amber-700">Rp {savingsBalance.toLocaleString('id-ID')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Stats Pills — now with Menabung */}
       {summary && !summaryLoading && (
         <div className="flex gap-2">
           <div className="flex-1 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
@@ -118,15 +158,25 @@ export default function DashboardPage({ user }) {
             </div>
             <p className="text-sm font-bold text-red-500">Rp {summary.pengeluaran.toLocaleString('id-ID')}</p>
           </div>
+          <div className="flex-1 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+            <div className="flex items-center gap-1 text-amber-600 text-xs mb-0.5">
+              <PiggyBank size={13} /> Menabung
+            </div>
+            {savingsLoading ? (
+              <div className="h-4 w-16 bg-amber-200 rounded animate-pulse" />
+            ) : (
+              <p className="text-sm font-bold text-amber-700">Rp {monthlySavings.toLocaleString('id-ID')}</p>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Wallet Balances Mini */}
-      {wallets.length > 0 && (
+      {/* Operational Wallets Mini */}
+      {operasionalWallets.length > 0 && (
         <div>
           <h2 className="font-semibold text-gray-800 mb-2">Dompet & Rekening</h2>
           <div className="space-y-1.5">
-            {wallets.map(w => (
+            {operasionalWallets.map(w => (
               <div key={w.id} className="flex items-center justify-between bg-white rounded-xl px-4 py-2.5 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg">{w.icon || '💳'}</span>
@@ -142,6 +192,35 @@ export default function DashboardPage({ user }) {
                   <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
                 ) : (
                   <span className={`text-sm font-bold ${(walletBalances[w.id] || 0) >= 0 ? 'text-gray-900' : 'text-red-500'}`}>
+                    Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Savings Wallets Mini */}
+      {savingsWallets.length > 0 && (
+        <div>
+          <h2 className="font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
+            <PiggyBank size={15} /> Tabungan
+          </h2>
+          <div className="space-y-1.5">
+            {savingsWallets.map(w => (
+              <div key={w.id} className="flex items-center justify-between bg-amber-50/50 rounded-xl px-4 py-2.5 shadow-sm border border-amber-100">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">{w.icon || '🏦'}</span>
+                  <span className="text-sm font-medium text-gray-700 truncate">{w.name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-100 text-amber-700">
+                    Tabungan
+                  </span>
+                </div>
+                {walletBalLoading ? (
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  <span className="text-sm font-bold text-amber-700">
                     Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}
                   </span>
                 )}

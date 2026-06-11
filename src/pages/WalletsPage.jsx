@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Wallet, Building2, Smartphone, Trash2, Pencil, ArrowLeftRight, X, Check } from 'lucide-react'
+import { Plus, Wallet, Building2, Smartphone, Trash2, Pencil, ArrowLeftRight, X, Check, PiggyBank } from 'lucide-react'
 import { useWallets } from '../hooks/useWallets'
 import { useTransfers } from '../hooks/useTransfers'
 import TransferForm from '../components/TransferForm'
@@ -20,7 +20,7 @@ export default function WalletsPage({ userId }) {
   const [showAdd, setShowAdd] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [editId, setEditId] = useState(null)
-  const [form, setForm] = useState({ name: '', type: 'cash', icon: '', initial_balance: '' })
+  const [form, setForm] = useState({ name: '', type: 'cash', icon: '', initial_balance: '', is_savings: false })
   const [submitting, setSubmitting] = useState(false)
 
   // Load balances
@@ -32,6 +32,8 @@ export default function WalletsPage({ userId }) {
   })
 
   const totalBalance = Object.values(balances).reduce((sum, b) => sum + (b || 0), 0)
+  const operasionalBalance = wallets.filter(w => !w.is_savings).reduce((s, w) => s + (balances[w.id] || 0), 0)
+  const savingsBalance = wallets.filter(w => w.is_savings).reduce((s, w) => s + (balances[w.id] || 0), 0)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -39,27 +41,27 @@ export default function WalletsPage({ userId }) {
     setSubmitting(true)
 
     if (editId) {
-      await updateWallet(editId, { name: form.name, type: form.type, icon: form.icon })
+      await updateWallet(editId, { name: form.name, type: form.type, icon: form.icon, is_savings: form.is_savings })
     } else {
       await addWallet({
         name: form.name,
         type: form.type,
         icon: form.icon,
         initial_balance: parseInt(form.initial_balance) || 0,
+        is_savings: form.is_savings,
       })
     }
 
     setSubmitting(false)
     setShowAdd(false)
     setEditId(null)
-    setForm({ name: '', type: 'cash', icon: '', initial_balance: '' })
-    // Refresh balances
+    setForm({ name: '', type: 'cash', icon: '', initial_balance: '', is_savings: false })
     getWalletBalances().then(b => setBalances(b))
   }
 
   const handleEdit = (w) => {
     setEditId(w.id)
-    setForm({ name: w.name, type: w.type, icon: w.icon || '', initial_balance: '' })
+    setForm({ name: w.name, type: w.type, icon: w.icon || '', initial_balance: '', is_savings: w.is_savings || false })
     setShowAdd(true)
   }
 
@@ -86,7 +88,7 @@ export default function WalletsPage({ userId }) {
             <ArrowLeftRight size={20} />
           </button>
           <button
-            onClick={() => { setEditId(null); setForm({ name: '', type: 'cash', icon: '', initial_balance: '' }); setShowAdd(true) }}
+            onClick={() => { setEditId(null); setForm({ name: '', type: 'cash', icon: '', initial_balance: '', is_savings: false }); setShowAdd(true) }}
             className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
           >
             <Plus size={22} />
@@ -94,13 +96,25 @@ export default function WalletsPage({ userId }) {
         </div>
       </div>
 
-      {/* Total Balance */}
+      {/* Total Balance Breakdown */}
       <div className="bg-gradient-to-r from-indigo-500 to-violet-500 rounded-2xl p-5 text-white shadow-xl shadow-indigo-200/50">
-        <p className="text-sm text-indigo-200 font-medium">Total Saldo Semua Dompet</p>
+        <p className="text-sm text-indigo-200 font-medium">Total Saldo</p>
         {balLoading ? (
           <div className="h-10 w-48 bg-white/20 rounded-lg animate-pulse mt-2" />
         ) : (
           <p className="text-3xl font-bold tracking-tight mt-1">Rp {formatIdr(totalBalance)}</p>
+        )}
+        {!balLoading && wallets.length > 0 && (
+          <div className="flex gap-4 mt-3 pt-3 border-t border-white/15 text-sm">
+            <div>
+              <p className="text-xs text-indigo-200">Operasional</p>
+              <p className="font-semibold text-white">Rp {formatIdr(operasionalBalance)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-amber-200">Tabungan</p>
+              <p className="font-semibold text-amber-200">Rp {formatIdr(savingsBalance)}</p>
+            </div>
+          </div>
         )}
       </div>
 
@@ -124,6 +138,7 @@ export default function WalletsPage({ userId }) {
               <div className="flex items-center gap-3">
                 {/* Icon */}
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${
+                  w.is_savings ? 'bg-amber-50' :
                   w.type === 'cash' ? 'bg-green-50' : w.type === 'bank' ? 'bg-blue-50' : 'bg-purple-50'
                 }`}>
                   {w.icon || WALLET_ICONS[w.type]}
@@ -133,12 +148,18 @@ export default function WalletsPage({ userId }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-gray-900">{w.name}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
-                      w.type === 'cash' ? 'bg-green-100 text-green-700' : 
-                      w.type === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                    }`}>
-                      {WALLET_TYPES.find(t => t.value === w.type)?.label || w.type}
-                    </span>
+                    {w.is_savings ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-100 text-amber-700 flex items-center gap-0.5">
+                        <PiggyBank size={10} /> Tabungan
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
+                        w.type === 'cash' ? 'bg-green-100 text-green-700' : 
+                        w.type === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {WALLET_TYPES.find(t => t.value === w.type)?.label || w.type}
+                      </span>
+                    )}
                   </div>
                   <p className={`text-sm font-bold mt-0.5 ${
                     (balances[w.id] || 0) >= 0 ? 'text-gray-900' : 'text-red-500'
@@ -168,7 +189,7 @@ export default function WalletsPage({ userId }) {
         </div>
       )}
 
-      {/* Transfer Form Modal */}
+      {/* Transfer Form Modal — all wallets appear here, including savings */}
       {showTransfer && (
         <TransferForm
           wallets={wallets}
@@ -241,6 +262,30 @@ export default function WalletsPage({ userId }) {
                   maxLength={10}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
+              </div>
+
+              {/* Savings toggle */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, is_savings: !f.is_savings }))}
+                    className={`w-11 h-6 rounded-full transition-colors relative ${
+                      form.is_savings ? 'bg-amber-500' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                      form.is_savings ? 'translate-x-5' : ''
+                    }`} />
+                  </button>
+                  <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <PiggyBank size={16} className="text-amber-600" />
+                    <span>Jadikan Tabungan</span>
+                  </div>
+                </label>
+                <p className="text-xs text-gray-400 mt-1 ml-14">
+                  Dompet tabungan tidak bisa dipilih untuk transaksi. Hanya bisa diisi/ditarik lewat transfer.
+                </p>
               </div>
 
               {/* Initial Balance (only on create) */}

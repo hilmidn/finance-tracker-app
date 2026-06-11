@@ -13,7 +13,7 @@ export default function TransactionForm({ categories, onSubmit, onClose, editTx 
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    supabase.from('wallets').select('*').order('created_at').then(({ data }) => {
+    supabase.from('wallets').select('*').eq('is_savings', false).order('created_at').then(({ data }) => {
       if (data) setWallets(data)
     })
   }, [])

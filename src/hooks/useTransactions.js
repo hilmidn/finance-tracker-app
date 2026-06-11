@@ -192,6 +192,80 @@ export function useTransactions(userId) {
       .sort((a, b) => b.total - a.total)
   }, [userId])
 
+  const getMonthlySavings = useCallback(async (month) => {
+    if (!userId) return 0
+    const [year, m] = month ? month.split('-') : [new Date().getFullYear().toString(), (new Date().getMonth() + 1).toString().padStart(2, '0')]
+    const start = `${year}-${m}-01`
+    const end = new Date(year, parseInt(m), 0).toISOString().split('T')[0]
+
+    // Get savings wallet IDs
+    const { data: savingsWallets } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_savings', true)
+
+    if (!savingsWallets || savingsWallets.length === 0) return 0
+    const savingsIds = savingsWallets.map(w => w.id)
+
+    const { data } = await supabase
+      .from('transfers')
+      .select('amount')
+      .eq('user_id', userId)
+      .gte('date', start)
+      .lte('date', end)
+      .in('to_wallet_id', savingsIds)
+
+    return data?.reduce((sum, t) => sum + t.amount, 0) || 0
+  }, [userId])
+
+  const getSavingsHistory = useCallback(async () => {
+    if (!userId) return []
+
+    const { data: savingsWallets } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_savings', true)
+
+    if (!savingsWallets || savingsWallets.length === 0) return []
+    const savingsIds = savingsWallets.map(w => w.id)
+
+    // Last 6 months
+    const endDate = new Date().toISOString().split('T')[0]
+    const startDate = new Date()
+    startDate.setMonth(startDate.getMonth() - 5)
+    startDate.setDate(1)
+    const startStr = startDate.toISOString().split('T')[0]
+
+    const { data } = await supabase
+      .from('transfers')
+      .select('amount, date')
+      .eq('user_id', userId)
+      .gte('date', startStr)
+      .lte('date', endDate)
+      .in('to_wallet_id', savingsIds)
+
+    // Group by month
+    const byMonth = {}
+    data?.forEach(t => {
+      const key = t.date.substring(0, 7)
+      byMonth[key] = (byMonth[key] || 0) + t.amount
+    })
+
+    // Fill all months in range
+    const months = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date()
+      d.setMonth(d.getMonth() - i)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const names = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+      months.push({ month: key, name: names[d.getMonth()], total: byMonth[key] || 0 })
+    }
+
+    return months
+  }, [userId])
+
   return {
     transactions,
     loading,
@@ -202,5 +276,7 @@ export function useTransactions(userId) {
     deleteTransfer,
     getSummary,
     getCategoryBreakdown,
+    getMonthlySavings,
+    getSavingsHistory,
   }
 }
