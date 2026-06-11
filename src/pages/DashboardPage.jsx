@@ -9,7 +9,8 @@ import { useCategories } from '../hooks/useCategories'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 
-export default function DashboardPage({ userId }) {
+export default function DashboardPage({ user }) {
+  const userId = user.id
   const [month, setMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -47,6 +48,9 @@ export default function DashboardPage({ userId }) {
 
   const recent = transactions.slice(0, 5)
 
+  // Display name from email or metadata
+  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+
   // Morning greeting
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Pagi' : hour < 17 ? 'Siang' : 'Malam'
@@ -57,7 +61,7 @@ export default function DashboardPage({ userId }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500">Selamat {greeting},</p>
-          <h1 className="text-xl font-bold text-gray-900">Hilmi</h1>
+          <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
         </div>
         <button
           onClick={() => setShowForm(true)}

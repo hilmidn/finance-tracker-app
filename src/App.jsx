@@ -26,7 +26,7 @@ function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<DashboardPage userId={user.id} />} />
+          <Route path="/" element={<DashboardPage user={user} />} />
           <Route path="/transactions" element={<TransactionsPage userId={user.id} />} />
           <Route path="/analysis" element={<AnalysisPage userId={user.id} />} />
           <Route path="/settings" element={<SettingsPage userId={user.id} onSignOut={signOut} />} />
