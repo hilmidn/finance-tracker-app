@@ -50,13 +50,18 @@ export function useTransactions(userId) {
   // Track pending items
   useEffect(() => {
     if (!userId) return
+    let cancelled = false
     const check = async () => {
-      const cnt = await db.transactions.where({ synced: false }).count()
-      setPendingCount(cnt)
+      try {
+        const all = await db.transactions.toArray()
+        if (!cancelled) setPendingCount(all.filter(t => t.synced === false).length)
+      } catch (e) {
+        console.warn('Dexie pending count failed:', e.message)
+      }
     }
     check()
     const id = setInterval(check, 5000)
-    return () => clearInterval(id)
+    return () => { cancelled = true; clearInterval(id) }
   }, [userId])
 
   const fetchTransfers = useCallback(async (userId, month) => {
@@ -111,7 +116,8 @@ export function useTransactions(userId) {
       }
 
       // Merge pending offline items that haven't been synced yet
-      const pending = await db.transactions.where('synced').equals(false).toArray()
+      const allTx = await db.transactions.toArray()
+      const pending = allTx.filter(t => t.synced === false)
       if (pending.length > 0) {
         let filteredPending = pending
         if (month) {

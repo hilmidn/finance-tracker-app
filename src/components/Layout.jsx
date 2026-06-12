@@ -16,14 +16,21 @@ export default function Layout({ children }) {
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
     const check = async () => {
-      const cnt = await db.transactions.where('synced').equals(false).count()
-      const cnt2 = await db.transfers.where('synced').equals(false).count()
-      setPendingCount(cnt + cnt2)
+      try {
+        const all = await db.transactions.toArray()
+        const allTr = await db.transfers.toArray()
+        if (!cancelled) {
+          setPendingCount(all.filter(t => t.synced === false).length + allTr.filter(t => t.synced === false).length)
+        }
+      } catch (e) {
+        console.warn('Dexie pending count failed:', e.message)
+      }
     }
     check()
     const id = setInterval(check, 5000)
-    return () => clearInterval(id)
+    return () => { cancelled = true; clearInterval(id) }
   }, [])
 
   return (

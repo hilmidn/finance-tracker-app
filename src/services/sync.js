@@ -18,7 +18,8 @@ export function onNetworkChange(fn) {
 }
 
 async function syncTransactions() {
-  const pending = await db.transactions.where('synced').equals(false).toArray()
+  const all = await db.transactions.toArray()
+  const pending = all.filter(t => t.synced === false)
   const toDelete = pending.filter(t => t._deleted)
   const toInsert = pending.filter(t => !t._deleted && !t.serverId)
   const toUpdate = pending.filter(t => !t._deleted && t.serverId)
@@ -56,7 +57,8 @@ async function syncTransactions() {
 }
 
 async function syncTransfers() {
-  const pending = await db.transfers.where('synced').equals(false).toArray()
+  const all = await db.transfers.toArray()
+  const pending = all.filter(t => t.synced === false)
   const toDelete = pending.filter(t => t._deleted)
   const toInsert = pending.filter(t => !t._deleted && !t.serverId)
 
