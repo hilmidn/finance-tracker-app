@@ -41,7 +41,16 @@ function parsePrice(raw) {
 }
 
 function parseReceipt(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  let raw = text
+    .replace(/\r/g, '')
+    .trim()
+
+  // ── Pre-process: merge split numbers like "18, 000" → "18,000" ──
+  // OCR sering pisahin angka karena spasi tipis di struk
+  // Hanya merge kalau ada koma/titik (ribuan separator)
+  raw = raw.replace(/(\d)[,.]\s+(\d{1,3})/g, '$1$2')
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
   const items = []
   let totalAmount = 0
   let totalLine = null
@@ -51,60 +60,64 @@ function parseReceipt(text) {
   for (const line of lines) {
     if (skipPattern.test(line)) continue
     const cleaned = line.replace(/Rp\.?\s*/gi, '').trim()
+    if (!cleaned) continue
 
-    // Cari SEMUA kemungkinan angka dalam baris
-    // Match: "18.000", "18,000", "18000", "1.234", etc.
-    const numbers = []
-    const numRe = /\d[\d.,\s]*\d/g
-    let m
-    while ((m = numRe.exec(cleaned)) !== null) {
-      const val = parsePrice(m[0])
+    // Token-based scanning: cari SEMUA angka per-token
+    const tokens = cleaned.split(/\s+/)
+    const found = [] // { token, value, index }
+
+    let charIdx = 0
+    for (const token of tokens) {
+      // Skip token yg jelas bukan angka harga
+      if (/^(ml|gr|kg|l|pcs|×|\d+ml)$/i.test(token) || token.startsWith('#') || token === '=' || token === '|') {
+        charIdx += token.length + 1
+        continue
+      }
+      const val = parsePrice(token)
       if (val > 0 && val < 100_000_000) {
-        numbers.push({ value: val, index: m.index, end: m.index + m[0].length })
+        found.push({ value: val, index: charIdx, token })
       }
+      charIdx += token.length + 1
     }
 
-    if (numbers.length === 0) continue
+    if (found.length === 0) continue
 
-    // Ambil angka paling kanan sebagai harga
-    const lastNum = numbers[numbers.length - 1]
-    const price = lastNum.value
-    if (price <= 0 || price >= 100_000_000) continue
+    // Filter: angka yg beneran kelihatan seperti harga (≥ 1000)
+    // Ini ngefilter produk code, quantity dll (726, 4, 400, 225, 1)
+    const prices = found.filter(f => f.value >= 1000)
+    const usable = prices.length > 0 ? prices : [found[found.length - 1]]
 
-    // Nama produk = teks sebelum angka terakhir
-    const name = cleaned.substring(0, lastNum.index).replace(/[\s,:;\-–—|]+$/, '').trim()
-
-    if (!name || /^\d+$/.test(name)) continue
-
-    if (totalKeywords.test(name)) {
-      totalLine = { name, price }
+    if (usable.length === 1) {
+      // ── Satu harga per baris ──
+      const lastNum = usable[0]
+      const price = lastNum.value
+      const name = cleaned.substring(0, lastNum.index).replace(/[\s,:;\-–—|]+$/, '').trim()
+      if (name && !/^\d+$/.test(name)) {
+        if (totalKeywords.test(name)) totalLine = { name, price }
+        else items.push({ name, price })
+      }
     } else {
-      items.push({ name, price })
-    }
-  }
-
-  if (totalLine) {
-    totalAmount = totalLine.price
-  } else if (items.length > 0) {
-    totalAmount = items.reduce((s, i) => s + i.price, 0)
-  }
-
-  // Fallback: filter outlier items (harga terlalu kecil dibanding rata-rata)
-  if (items.length > 2) {
-    const avg = items.reduce((s, i) => s + i.price, 0) / items.length
-    const filtered = items.filter(i => i.price >= avg * 0.3)
-    if (filtered.length > 0 && filtered.length < items.length) {
-      // Keep filtered but only if we didn't lose too many
-      const lostCount = items.length - filtered.length
-      if (lostCount <= items.length * 0.4) {
-        items.length = 0
-        items.push(...filtered)
-        if (!totalLine && items.length > 0) {
-          totalAmount = items.reduce((s, i) => s + i.price, 0)
+      // ── Multiple price anchors dalam satu baris (OCR merge lines) ──
+      // Split: setiap price dapat nama dari teks sebelumnya
+      let prevEnd = 0
+      for (const p of usable) {
+        let name = cleaned.substring(prevEnd, p.index).replace(/[\s,:;\-–—|#]+$/, '').trim()
+        // Kalo nama sebelumnya keambil sama angka2 kecil, strip
+        if (name) {
+          // Bersihin sisa angka kecil yg ikut (produk code, qty)
+          name = name.replace(/\s*\d{1,4}\s*/g, ' ').trim()
+          if (name && !/^\d+$/.test(name)) {
+            if (totalKeywords.test(name)) totalLine = { name, price: p.value }
+            else items.push({ name, price: p.value })
+          }
         }
+        prevEnd = p.index + p.token.length
       }
     }
   }
+
+  if (totalLine) totalAmount = totalLine.price
+  else if (items.length > 0) totalAmount = items.reduce((s, i) => s + i.price, 0)
 
   return { items, totalAmount }
 }
@@ -137,8 +150,9 @@ export default function ScanPage() {
   const imageContainerRef = useRef(null)
   const imageRef = useRef(null)
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragMode, setDragMode] = useState(null) // null | 'new' | 'move' | 'resize-*'
+  const [dragStart, setDragStart] = useState(null) // {x,y} in image coords
+  const [cropSnapshot, setCropSnapshot] = useState(null) // crop state when drag started
   const [imageLoaded, setImageLoaded] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -179,8 +193,13 @@ export default function ScanPage() {
     }
   }, [])
 
-  // Mouse/touch handlers for crop
-  const getPos = (e) => {
+  // Mouse/touch handlers for crop with resize handles + move
+  const getScale = useCallback(() => {
+    if (!imageRef.current || !imageContainerRef.current) return 1
+    return imageRef.current.naturalWidth / imageContainerRef.current.offsetWidth
+  }, [])
+
+  const getPos = useCallback((e) => {
     const rect = imageContainerRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
@@ -188,36 +207,117 @@ export default function ScanPage() {
       x: (clientX - rect.left) * (imageRef.current.naturalWidth / rect.width),
       y: (clientY - rect.top) * (imageRef.current.naturalHeight / rect.height),
     }
-  }
+  }, [])
 
-  const handleMouseDown = (e) => {
+  // Detect which handle is being clicked (in image coords)
+  const getHandleAt = useCallback((pos) => {
+    if (!crop || crop.w < 10 || crop.h < 10) return null
+    const s = 12 * getScale() // threshold in image pixels (~12px screen)
+    const handles = {
+      'tl': { x: crop.x, y: crop.y },
+      'tr': { x: crop.x + crop.w, y: crop.y },
+      'bl': { x: crop.x, y: crop.y + crop.h },
+      'br': { x: crop.x + crop.w, y: crop.y + crop.h },
+      'l': { x: crop.x, y: crop.y + crop.h / 2 },
+      'r': { x: crop.x + crop.w, y: crop.y + crop.h / 2 },
+      't': { x: crop.x + crop.w / 2, y: crop.y },
+      'b': { x: crop.x + crop.w / 2, y: crop.y + crop.h },
+    }
+    for (const [key, h] of Object.entries(handles)) {
+      if (Math.abs(pos.x - h.x) < s && Math.abs(pos.y - h.y) < s) return key
+    }
+    return null
+  }, [crop, getScale])
+
+  const handleMouseDown = useCallback((e) => {
     e.preventDefault()
     const pos = getPos(e)
-    setIsDragging(true)
+    const img = imageRef.current
+    if (!img) return
+
+    // Check if clicking on a handle
+    const handle = getHandleAt(pos)
+    if (handle) {
+      setDragMode(`resize-${handle}`)
+      setDragStart(pos)
+      setCropSnapshot({ ...crop })
+      return
+    }
+
+    // Check if clicking inside existing selection → move mode
+    if (pos.x >= crop.x && pos.x <= crop.x + crop.w &&
+        pos.y >= crop.y && pos.y <= crop.y + crop.h) {
+      setDragMode('move')
+      setDragStart(pos)
+      setCropSnapshot({ ...crop })
+      return
+    }
+
+    // Click outside → new selection
+    setDragMode('new')
     setDragStart(pos)
     setCrop({ x: pos.x, y: pos.y, w: 1, h: 1 })
-  }
+  }, [crop, getPos, getHandleAt])
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return
+  const handleMouseMove = useCallback((e) => {
+    if (!dragMode) return
     const pos = getPos(e)
     const img = imageRef.current
+    if (!img) return
     const maxX = img.naturalWidth
     const maxY = img.naturalHeight
-    setCrop({
-      x: Math.max(0, Math.min(dragStart.x, pos.x)),
-      y: Math.max(0, Math.min(dragStart.y, pos.y)),
-      w: Math.min(Math.abs(pos.x - dragStart.x), maxX - Math.min(dragStart.x, pos.x)),
-      h: Math.min(Math.abs(pos.y - dragStart.y), maxY - Math.min(dragStart.y, pos.y)),
-    })
-  }
 
-  const handleMouseUp = () => setIsDragging(false)
+    if (dragMode === 'new') {
+      const x = Math.max(0, Math.min(dragStart.x, pos.x))
+      const y = Math.max(0, Math.min(dragStart.y, pos.y))
+      const w = Math.min(Math.abs(pos.x - dragStart.x), maxX - x)
+      const h = Math.min(Math.abs(pos.y - dragStart.y), maxY - y)
+      if (w > 2 || h > 2) setCrop({ x, y, w, h })
+    } else if (dragMode === 'move') {
+      const dx = pos.x - dragStart.x
+      const dy = pos.y - dragStart.y
+      setCrop({
+        x: Math.max(0, Math.min(cropSnapshot.x + dx, maxX - cropSnapshot.w)),
+        y: Math.max(0, Math.min(cropSnapshot.y + dy, maxY - cropSnapshot.h)),
+        w: cropSnapshot.w,
+        h: cropSnapshot.h,
+      })
+    } else if (dragMode.startsWith('resize-')) {
+      const edge = dragMode.replace('resize-', '')
+      let { x, y, w, h } = cropSnapshot
+      const minSize = 20
 
-  const getScale = () => {
-    if (!imageRef.current || !imageContainerRef.current) return 1
-    return imageRef.current.naturalWidth / imageContainerRef.current.offsetWidth
-  }
+      if (edge.includes('r')) {
+        w = Math.max(minSize, Math.min(pos.x - cropSnapshot.x, maxX - cropSnapshot.x))
+      }
+      if (edge.includes('b')) {
+        h = Math.max(minSize, Math.min(pos.y - cropSnapshot.y, maxY - cropSnapshot.y))
+      }
+      if (edge.includes('l')) {
+        const newX = Math.min(pos.x, cropSnapshot.x + cropSnapshot.w - minSize)
+        w = cropSnapshot.x + cropSnapshot.w - newX
+        x = newX
+      }
+      if (edge.includes('t')) {
+        const newY = Math.min(pos.y, cropSnapshot.y + cropSnapshot.h - minSize)
+        h = cropSnapshot.y + cropSnapshot.h - newY
+        y = newY
+      }
+
+      setCrop({
+        x: Math.max(0, x),
+        y: Math.max(0, y),
+        w: Math.min(w, maxX - Math.max(0, x)),
+        h: Math.min(h, maxY - Math.max(0, y)),
+      })
+    }
+  }, [dragMode, dragStart, cropSnapshot, getPos])
+
+  const handleMouseUp = useCallback(() => {
+    setDragMode(null)
+    setDragStart(null)
+    setCropSnapshot(null)
+  }, [])
 
   const handleCropAndScan = useCallback(async () => {
     if (crop.w < 20 || crop.h < 20) {
@@ -366,9 +466,8 @@ export default function ScanPage() {
                   </defs>
                   <rect width="100%" height="100%" fill="black" fillOpacity="0.45" mask="url(#cropMask)" />
                 </svg>
-                {/* Crop border */}
-                <div
-                  className="absolute border-2 border-indigo-400 pointer-events-none"
+                {/* Crop border with interactive handles */}
+                <div className="absolute border-2 border-indigo-400"
                   style={{
                     left: (crop.x / imageRef.current.naturalWidth * 100) + '%',
                     top: (crop.y / imageRef.current.naturalHeight * 100) + '%',
@@ -376,11 +475,22 @@ export default function ScanPage() {
                     height: (crop.h / imageRef.current.naturalHeight * 100) + '%',
                   }}
                 >
+                  {/* Edge handles (bigger hit area) */}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-3 cursor-n-resize" />
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-6 h-3 cursor-s-resize" />
+                  <div className="absolute -left-1 top-1/2 -translate-y-1/2 h-6 w-3 cursor-w-resize" />
+                  <div className="absolute -right-1 top-1/2 -translate-y-1/2 h-6 w-3 cursor-e-resize" />
                   {/* Corner handles */}
-                  <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-indigo-400 rounded-full" />
-                  <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-indigo-400 rounded-full" />
-                  <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-indigo-400 rounded-full" />
-                  <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-indigo-400 rounded-full" />
+                  <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-indigo-400 rounded-full cursor-nw-resize shadow-md" />
+                  <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-indigo-400 rounded-full cursor-ne-resize shadow-md" />
+                  <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-indigo-400 rounded-full cursor-sw-resize shadow-md" />
+                  <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-indigo-400 rounded-full cursor-se-resize shadow-md" />
+                  {/* Move hint indicator in center */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                    <div className="w-8 h-8 rounded-full bg-indigo-400/20 border border-indigo-300 flex items-center justify-center cursor-move">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-600"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
