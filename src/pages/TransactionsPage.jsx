@@ -33,7 +33,7 @@ export default function TransactionsPage() {
   const [editTx, setEditTx] = useState(null)
 
   // Filters
-  const [filterCategory, setFilterCategory] = useState('')
+  const [filterCategories, setFilterCategories] = useState([])
   const [filterDateStart, setFilterDateStart] = useState('')
   const [filterDateEnd, setFilterDateEnd] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -59,9 +59,9 @@ export default function TransactionsPage() {
     if (!r) return transactions
     let list = transactions.filter(t => t.date >= r.start && t.date <= r.end)
 
-    // Category filter
-    if (filterCategory) {
-      list = list.filter(t => t.category_id === parseInt(filterCategory))
+    // Category filter (multi)
+    if (filterCategories.length > 0) {
+      list = list.filter(t => filterCategories.includes(t.category_id))
     }
 
     // Date range filter (within the month)
@@ -73,7 +73,7 @@ export default function TransactionsPage() {
     }
 
     return list
-  }, [transactions, month, filterCategory, filterDateStart, filterDateEnd])
+  }, [transactions, month, filterCategories, filterDateStart, filterDateEnd])
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
   const loadingAnalisis = summaryLoading || breakdownLoading
@@ -114,6 +114,21 @@ export default function TransactionsPage() {
     const all = [...(categories.pengeluaran || []), ...(categories.pemasukan || [])]
     return all.sort((a, b) => a.name.localeCompare(b.name))
   }, [categories])
+
+  // Only categories that have transactions in the current month
+  const monthTransactions = useMemo(() => {
+    const r = monthRange(month)
+    if (!r) return transactions
+    return transactions.filter(t => t.date >= r.start && t.date <= r.end)
+  }, [transactions, month])
+
+  const usedCategoryIds = useMemo(() => {
+    return new Set(monthTransactions.map(t => t.category_id).filter(Boolean))
+  }, [monthTransactions])
+
+  const availableCategories = useMemo(() => {
+    return allCategories.filter(cat => usedCategoryIds.has(cat.id))
+  }, [allCategories, usedCategoryIds])
 
   const barColors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-cyan-500', 'bg-teal-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500']
 
@@ -175,6 +190,88 @@ export default function TransactionsPage() {
       {/* ══════ TAB: RIWAYAT ══════ */}
       {tab === 'riwayat' && (
         <div className="space-y-2">
+          {/* Filter toggle + count */}
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-gray-400 font-medium">
+              {filteredTransactions.length} transaksi
+              {filterCategories.length > 0 && ` · ${filterCategories.length} kategori`}
+            </span>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                showFilters || filterCategories.length > 0 ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <Filter size={13} />
+              {filterCategories.length > 0 ? 'Tersaring' : 'Filter'}
+            </button>
+          </div>
+
+          {/* Filter bar */}
+          {showFilters && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-700">Filter</span>
+                <button
+                  onClick={() => { setFilterCategories([]); const r = monthRange(month); if (r) { setFilterDateStart(r.start); setFilterDateEnd(r.end) } }}
+                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Category multi-select */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Kategori</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableCategories.map(cat => {
+                    const selected = filterCategories.includes(cat.id)
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setFilterCategories(prev =>
+                            selected ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                          )
+                        }}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                          selected
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {cat.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Date range */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Dari</label>
+                  <input type="date" value={filterDateStart}
+                    onChange={e => setFilterDateStart(e.target.value)}
+                    min={monthRange(month)?.start}
+                    max={filterDateEnd || monthRange(month)?.end}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Sampai</label>
+                  <input type="date" value={filterDateEnd}
+                    onChange={e => setFilterDateEnd(e.target.value)}
+                    min={filterDateStart || monthRange(month)?.start}
+                    max={monthRange(month)?.end}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Content: loading / empty / list */}
           {loading ? (
             <div className="space-y-2">
               {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-xl animate-pulse" />)}
@@ -184,87 +281,24 @@ export default function TransactionsPage() {
               <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-100 rounded-2xl mb-3">
                 <ArrowLeftRight size={24} className="text-gray-400" />
               </div>
-              <p className="text-gray-400 text-sm">Belum ada transaksi</p>
-              <p className="text-gray-300 text-xs mt-1">Bulan {monthLabel} masih kosong</p>
+              <p className="text-gray-400 text-sm">
+                {filterCategories.length > 0 || filterDateStart !== monthRange(month)?.start ? 'Tidak ada transaksi dengan filter ini' : 'Belum ada transaksi'}
+              </p>
+              <p className="text-gray-300 text-xs mt-1">{monthLabel}</p>
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs text-gray-400 font-medium">{filteredTransactions.length} transaksi</span>
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
-                    showFilters || filterCategory ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  <Filter size={13} />
-                  {filterCategory ? 'Tersaring' : 'Filter'}
-                </button>
-              </div>
-
-              {/* Filter bar */}
-              {showFilters && (
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700">Filter</span>
-                    <button
-                      onClick={() => { setFilterCategory(''); const r = monthRange(month); if (r) { setFilterDateStart(r.start); setFilterDateEnd(r.end) } }}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                    >
-                      Reset
-                    </button>
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Kategori</label>
-                    <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    >
-                      <option value="">Semua kategori</option>
-                      {allCategories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Date range */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Dari</label>
-                      <input type="date" value={filterDateStart}
-                        onChange={e => setFilterDateStart(e.target.value)}
-                        min={monthRange(month)?.start}
-                        max={filterDateEnd || monthRange(month)?.end}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Sampai</label>
-                      <input type="date" value={filterDateEnd}
-                        onChange={e => setFilterDateEnd(e.target.value)}
-                        min={filterDateStart || monthRange(month)?.start}
-                        max={monthRange(month)?.end}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {filteredTransactions.map(tx => {
-                const key = tx.__type === 'transfer' ? `tr_${tx._raw?.id}` : `tx_${tx.id}`
-                return (
-                  <TransactionItem
-                    key={key} tx={tx}
-                    onDelete={(id, isTransfer) => { isTransfer ? deleteTransfer(id) : deleteTransaction(id) }}
-                    onEdit={(t) => {
-                      if (t.__type !== 'transfer') { setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id }); setShowForm(true) }
-                    }}
-                  />
-                )
-              })}
-            </>
+            filteredTransactions.map(tx => {
+              const key = tx.__type === 'transfer' ? `tr_${tx._raw?.id}` : `tx_${tx.id}`
+              return (
+                <TransactionItem
+                  key={key} tx={tx}
+                  onDelete={(id, isTransfer) => { isTransfer ? deleteTransfer(id) : deleteTransaction(id) }}
+                  onEdit={(t) => {
+                    if (t.__type !== 'transfer') { setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id }); setShowForm(true) }
+                  }}
+                />
+              )
+            })
           )}
         </div>
       )}
