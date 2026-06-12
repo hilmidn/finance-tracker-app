@@ -7,7 +7,16 @@ const COLORS = {
   amber: [245, 158, 11],
   indigo: [99, 102, 241],
   gray: [107, 114, 128],
-  lightBg: [249, 250, 251],
+}
+
+function formatDate(isoDate) {
+  if (!isoDate) return '-'
+  const [y, m, d] = isoDate.split('-')
+  return `${d}-${m}-${y}`
+}
+
+function fmtRp(n) {
+  return `Rp ${(n || 0).toLocaleString('id-ID')}`
 }
 
 export function exportToPDF({ transactions, user, monthLabel, savingsTransactions }) {
@@ -18,53 +27,72 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
   const pemasukan = transactions.filter(t => t.type === 'pemasukan')
   const menabung = savingsTransactions || []
 
-  // --- Summary calculation ---
-  const totalPemasukan = pemasukan.reduce((s, t) => s + t.amount, 0)
   const totalPengeluaran = pengeluaran.reduce((s, t) => s + t.amount, 0)
+  const totalPemasukan = pemasukan.reduce((s, t) => s + t.amount, 0)
   const totalMenabung = menabung.reduce((s, t) => s + t.amount, 0)
   const saldo = totalPemasukan - totalPengeluaran
 
-  // --- Kop ---
   const pageW = doc.internal.pageSize.getWidth()
+  const ml = 14 // margin left
+  const mr = 14 // margin right
+  const contentW = pageW - ml - mr
 
-  doc.setFontSize(20)
+  // =============================================
+  // KOP — row 1: title left, month right
+  // =============================================
+  doc.setFontSize(18)
   doc.setFont('helvetica', 'bold')
-  doc.text('Finance App', 14, 22)
+  doc.setTextColor(0, 0, 0)
+  doc.text('Finance App', ml, 22)
 
-  doc.setFontSize(12)
   doc.setFont('helvetica', 'normal')
-  doc.text(monthLabel, 14, 30)
-
-  doc.setFontSize(9)
+  doc.setFontSize(12)
   doc.setTextColor(...COLORS.gray)
+  doc.text(monthLabel, pageW - mr, 22, { align: 'right' })
+
+  // --- row 2: name left, timestamp right ---
   const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-  doc.text(`Akun: ${displayName}`, 14, 37)
   const now = new Date()
   const dateStr = `${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
-  doc.text(`Diekspor: ${dateStr}`, 14, 42)
+
+  doc.setFontSize(9)
+  doc.text(`Akun: ${displayName}`, ml, 30)
+  doc.text(`Diekspor: ${dateStr}`, pageW - mr, 30, { align: 'right' })
 
   // --- Garis horizontal ---
   doc.setDrawColor(200, 200, 200)
   doc.setLineWidth(0.5)
-  doc.line(14, 46, pageW - 14, 46)
+  doc.line(ml, 35, pageW - mr, 35)
 
-  let y = 52
+  let y = 42
 
-  // --- Helper: render table section ---
-  const renderTable = (title, data, columns, headColor, startY) => {
+  // =============================================
+  // Helper: render table with total row
+  // =============================================
+  const renderTable = (title, data, columns, headColor, totalLabel, totalValue, startY) => {
     if (data.length === 0) return startY
 
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.setTextColor(0, 0, 0)
-    doc.text(title, 14, startY)
+    doc.text(title, ml, startY)
 
     const body = data.map(item => columns.map(col => col.accessor(item)))
+
+    // Total row — colspan 3 for label, colspan 2 for amount
+    const colCount = columns.length
+    const foot = [
+      [
+        { content: totalLabel, colSpan: colCount - 2, styles: { halign: 'left', fontStyle: 'bold', fontSize: 8 } },
+        { content: fmtRp(totalValue), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8 } },
+      ],
+    ]
 
     autoTable(doc, {
       startY: startY + 4,
       head: [columns.map(c => c.label)],
       body,
+      foot,
       theme: 'grid',
       styles: { fontSize: 8, cellPadding: 2.5 },
       headStyles: {
@@ -73,98 +101,101 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
         fontStyle: 'bold',
         fontSize: 8,
       },
+      footStyles: {
+        fillColor: [243, 244, 246],
+        textColor: [0, 0, 0],
+      },
       columnStyles: columns.reduce((acc, col, idx) => {
         if (col.width !== 'auto') acc[idx] = { cellWidth: col.width }
+        if (col.align === 'right') acc[idx] = { ...acc[idx], halign: 'right' }
         return acc
       }, {}),
-      margin: { left: 14, right: 14 },
-      tableWidth: pageW - 28,
+      margin: { left: ml, right: mr },
+      tableWidth: contentW,
     })
 
-    return doc.lastAutoTable.finalY + 10
+    return doc.lastAutoTable.finalY + 8
   }
 
-  const dateCol = { label: 'Tanggal', width: 28, accessor: t => t.date || '-' }
-  const catCol = { label: 'Kategori', width: 38, accessor: t => t.categories?.name || '-' }
-  const walletCol = { label: 'Dompet', width: 30, accessor: t => t.wallets?.name || t._raw?.to_wallet?.name || '-' }
-  const amountCol = { label: 'Jumlah', width: 38, accessor: t => `Rp ${t.amount.toLocaleString('id-ID')}` }
+  // --- Column definitions (all tables: note BEFORE jumlah, jumlah right-aligned) ---
+  const dateCol = { label: 'Tanggal', width: 26, accessor: t => formatDate(t.date) }
+  const catCol = { label: 'Kategori', width: 36, accessor: t => t.categories?.name || '-' }
+  const walletCol = { label: 'Dompet', width: 28, accessor: t => t.wallets?.name || t._raw?.to_wallet?.name || '-' }
   const noteCol = { label: 'Catatan', width: 'auto', accessor: t => t.note || t.description || '-' }
-  const fromCol = { label: 'Dari', width: 30, accessor: t => t._raw?.from_wallet?.name || '-' }
-  const toCol = { label: 'Ke', width: 30, accessor: t => t._raw?.to_wallet?.name || '-' }
+  const amountCol = { label: 'Jumlah', width: 36, align: 'right', accessor: t => fmtRp(t.amount) }
+  const fromCol = { label: 'Dari', width: 36, accessor: t => t._raw?.from_wallet?.name || '-' }
+  const toCol = { label: 'Ke', width: 36, accessor: t => t._raw?.to_wallet?.name || '-' }
 
-  // --- Table: Pengeluaran ---
+  // --- Tabel: Pengeluaran ---
   y = renderTable(
     'Pengeluaran',
     pengeluaran,
-    [dateCol, catCol, walletCol, amountCol, noteCol],
+    [dateCol, catCol, walletCol, noteCol, amountCol],
     COLORS.red,
+    'Total Pengeluaran',
+    totalPengeluaran,
     y
   )
 
-  // --- Table: Pemasukan ---
+  // --- Tabel: Pemasukan ---
   y = renderTable(
     'Pemasukan',
     pemasukan,
-    [dateCol, catCol, walletCol, amountCol, noteCol],
+    [dateCol, catCol, walletCol, noteCol, amountCol],
     COLORS.green,
+    'Total Pemasukan',
+    totalPemasukan,
     y
   )
 
-  // --- Table: Menabung ---
+  // --- Tabel: Menabung ---
   y = renderTable(
     'Menabung (Transfer ke Tabungan)',
     menabung,
-    [
-      dateCol,
-      { label: 'Dari', width: 38, accessor: t => t._raw?.from_wallet?.name || '-' },
-      { label: 'Ke', width: 38, accessor: t => t._raw?.to_wallet?.name || '-' },
-      amountCol,
-      noteCol,
-    ],
+    [dateCol, fromCol, toCol, noteCol, amountCol],
     COLORS.amber,
+    'Total Menabung',
+    totalMenabung,
     y
   )
 
   // --- Garis pemisah ---
   doc.setDrawColor(200, 200, 200)
-  doc.line(14, y - 2, pageW - 14, y - 2)
+  doc.line(ml, y - 2, pageW - mr, y - 2)
 
-  // --- Summary Section ---
+  // =============================================
+  // Ringkasan — hanya Total Saldo
+  // =============================================
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.setTextColor(0, 0, 0)
-  doc.text('Ringkasan', 14, y + 4)
-  y += 10
-
-  const summaryData = [
-    ['Pemasukan', `Rp ${totalPemasukan.toLocaleString('id-ID')}`],
-    ['Pengeluaran', `Rp ${totalPengeluaran.toLocaleString('id-ID')}`],
-    ['Menabung', `Rp ${totalMenabung.toLocaleString('id-ID')}`],
-    ['Sisa', `Rp ${saldo.toLocaleString('id-ID')}`],
-  ]
+  doc.text('Ringkasan', ml, y + 6)
+  y += 12
 
   autoTable(doc, {
     startY: y,
     head: [],
-    body: summaryData.map(([label, val]) => [label, val]),
+    body: [['Total Saldo', fmtRp(saldo)]],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: 10, cellPadding: 3 },
     columnStyles: {
-      0: { cellWidth: 50, fontStyle: 'bold', textColor: [0, 0, 0] },
-      1: { cellWidth: 50, textColor: [0, 0, 0] },
+      0: { cellWidth: 60, fontStyle: 'bold', textColor: [0, 0, 0] },
+      1: { cellWidth: 60, halign: 'right', fontStyle: 'bold', textColor: [0, 0, 0] },
     },
-    margin: { left: 14 },
-    tableWidth: 100,
+    margin: { left: ml },
+    tableWidth: 120,
   })
 
   y = doc.lastAutoTable.finalY + 10
 
-  // --- Analisa singkat ---
+  // =============================================
+  // Analisa — tanpa emoji (biar ga aneh di PDF)
+  // =============================================
   if (totalPemasukan > 0 || totalPengeluaran > 0 || totalMenabung > 0) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.setTextColor(0, 0, 0)
-    doc.text('Analisa', 14, y)
+    doc.text('Analisa', ml, y)
     y += 6
 
     doc.setFont('helvetica', 'normal')
@@ -173,7 +204,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
 
     const tips = []
 
-    // Top category analysis
+    // Top category
     if (pengeluaran.length > 0) {
       const catTotals = {}
       pengeluaran.forEach(t => {
@@ -185,9 +216,9 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
       if (topCat && totalPengeluaran > 0) {
         const pct = (topCat[1] / totalPengeluaran) * 100
         if (pct > 40) {
-          tips.push(`⚠️ Pengeluaran terbesar: ${topCat[0]} (${Math.round(pct)}% dari total). Perlu dievaluasi.`)
+          tips.push(`[-] Pengeluaran terbesar: ${topCat[0]} (${Math.round(pct)}% dari total). Perlu dievaluasi.`)
         } else if (pct > 25) {
-          tips.push(`📊 Pengeluaran terbesar: ${topCat[0]} (${Math.round(pct)}%). Masih wajar, pantau terus.`)
+          tips.push(`[i] Pengeluaran terbesar: ${topCat[0]} (${Math.round(pct)}%). Masih wajar, pantau terus.`)
         }
       }
     }
@@ -196,33 +227,33 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
     if (totalPemasukan > 0) {
       const savingRate = ((totalPemasukan - totalPengeluaran) / totalPemasukan) * 100
       if (savingRate < 0) {
-        tips.push(`🔴 Defisit! Pengeluaran lebih besar Rp ${Math.abs(saldo).toLocaleString('id-ID')} dari pemasukan.`)
+        tips.push(`[!] Defisit! Pengeluaran lebih besar Rp ${Math.abs(saldo).toLocaleString('id-ID')} dari pemasukan.`)
       } else if (savingRate < 10) {
-        tips.push(`💡 Saving rate ${Math.round(savingRate)}%. Idealnya minimal 10-20%.`)
+        tips.push(`[i] Saving rate ${Math.round(savingRate)}%. Idealnya minimal 10-20%.`)
       } else if (savingRate >= 20) {
-        tips.push(`👍 Saving rate ${Math.round(savingRate)}%. Sangat baik!`)
+        tips.push(`[+] Saving rate ${Math.round(savingRate)}%. Sangat baik!`)
       }
     } else if (totalPemasukan === 0 && totalPengeluaran > 0) {
-      tips.push('🔴 Tidak ada pemasukan tercatat bulan ini.')
+      tips.push('[!] Tidak ada pemasukan tercatat bulan ini.')
     }
 
     // Menabung insight
     if (totalMenabung > 0) {
-      tips.push(`🐷 Menabung Rp ${totalMenabung.toLocaleString('id-ID')} bulan ini. Konsisten!`)
+      tips.push(`[$] Menabung ${fmtRp(totalMenabung)} bulan ini. Konsisten!`)
     }
 
-    tips.forEach((tip, i) => {
-      const lines = doc.splitTextToSize(tip, pageW - 28)
-      doc.text(lines, 14, y)
+    tips.forEach(tip => {
+      const lines = doc.splitTextToSize(tip, contentW)
+      doc.text(lines, ml, y)
       y += lines.length * 5 + 2
     })
   }
 
   // --- Footer ---
-  const footerY = doc.internal.pageSize.getHeight() - 15
+  const footerY = doc.internal.pageSize.getHeight() - 12
   doc.setFontSize(7)
   doc.setTextColor(...COLORS.gray)
-  doc.text(`Dihasilkan oleh Finance App — ${now.toLocaleDateString('id-ID')}`, 14, footerY)
+  doc.text(`Dihasilkan oleh Finance App — ${now.toLocaleDateString('id-ID')}`, ml, footerY)
 
   // --- Save ---
   doc.save(`Laporan Keuangan ${monthLabel}.pdf`)
