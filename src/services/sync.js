@@ -32,8 +32,8 @@ async function syncTransactions() {
   }
 
   for (const tx of toInsert) {
-    // Strip Dexie-internal fields — userId is stored as user_id in Supabase
-    const { clientId, synced, _deleted, serverId, userId, ...data } = tx
+    // Strip local-only fields (underscore-prefixed) + Dexie internals
+    const { clientId, synced, _deleted, serverId, userId, _categoryName, _walletName, _walletType, _walletIcon, ...data } = tx
     const { data: result, error } = await supabase
       .from('transactions')
       .insert({ ...data, user_id: userId })
@@ -45,7 +45,7 @@ async function syncTransactions() {
   }
 
   for (const tx of toUpdate) {
-    const { clientId, synced, _deleted, serverId, userId, ...data } = tx
+    const { clientId, synced, _deleted, serverId, userId, _categoryName, _walletName, _walletType, _walletIcon, ...data } = tx
     const { error } = await supabase
       .from('transactions')
       .update(data)
