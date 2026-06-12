@@ -7,31 +7,79 @@ import { supabase } from '../lib/supabase'
 
 /**
  * Parse OCR text from Indonesian receipts into items + total.
+ * Strategy: kiri=nama, kanan=jumlah. Cari SEMUA angka di tiap baris,
+ * ambil yang paling kanan sebagai harga.
  */
+function parsePrice(raw) {
+  // Bersihin spasi
+  let s = raw.replace(/\s+/g, '')
+
+  // Indonesian format: "18,000" → 18000 (koma ribuan)
+  // "18.000" → 18000 (titik ribuan)
+  // "1.234,50" → 1234.50 (titik ribuan, koma desimal)
+  // Tapi di struk receh, desimal jarang — mostly ribuan
+
+  if (s.includes(',') && s.includes('.')) {
+    // Mixed: "1.234,50" → titik ribuan, koma desimal
+    s = s.replace(/\./g, '').replace(',', '.')
+  } else if (s.includes(',')) {
+    const parts = s.split(',')
+    // 3 digit setelah koma = ribuan (18,000), else desimal
+    if (parts.length === 2 && parts[1].length === 3) {
+      s = s.replace(',', '') // thousand
+    } else if (parts.length === 2 && parts[1].length <= 2) {
+      s = s.replace(',', '.') // decimal
+    } else {
+      s = s.replace(/,/g, '')
+    }
+  }
+
+  // Remove all dots (thousand separators in Indo format)
+  const numStr = s.replace(/\./g, '')
+  const num = parseInt(numStr, 10)
+  return isNaN(num) ? 0 : num
+}
+
 function parseReceipt(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const items = []
   let totalAmount = 0
   let totalLine = null
-  const totalKeywords = /^(total|kembali|tunai|kartu|debit|kredit|bayar|pembayaran|grand\s*total)/i
+  const totalKeywords = /^(total|kembali|tunai|kartu|debit|kredit|bayar|pembayaran|grand\s*total|sub\s*total)/i
+  const skipPattern = /^(tanggal|waktu|jam|kasir|no\.|nota|struk|terima\s*kasih|^=+|---|^\++|member|anggota|alamat|telepon|npwp)/i
 
   for (const line of lines) {
-    if (/^(tanggal|waktu|kasir|no\.|nota|struk|terima\s*kasih|^=+|---|^\+)/i.test(line)) continue
+    if (skipPattern.test(line)) continue
     const cleaned = line.replace(/Rp\.?\s*/gi, '').trim()
-    const priceMatch = cleaned.match(/([\d.]+)$/)
-    if (priceMatch) {
-      const rawPrice = priceMatch[1].replace(/\./g, '')
-      const price = parseInt(rawPrice, 10)
-      if (!isNaN(price) && price > 0) {
-        const name = cleaned.replace(priceMatch[0], '').replace(/\s{2,}/g, ' ').trim()
-        if (name && !/^\d+$/.test(name)) {
-          if (totalKeywords.test(name)) {
-            totalLine = { name, price }
-          } else if (price < 100000000) {
-            items.push({ name, price })
-          }
-        }
+
+    // Cari SEMUA kemungkinan angka dalam baris
+    // Match: "18.000", "18,000", "18000", "1.234", etc.
+    const numbers = []
+    const numRe = /\d[\d.,\s]*\d/g
+    let m
+    while ((m = numRe.exec(cleaned)) !== null) {
+      const val = parsePrice(m[0])
+      if (val > 0 && val < 100_000_000) {
+        numbers.push({ value: val, index: m.index, end: m.index + m[0].length })
       }
+    }
+
+    if (numbers.length === 0) continue
+
+    // Ambil angka paling kanan sebagai harga
+    const lastNum = numbers[numbers.length - 1]
+    const price = lastNum.value
+    if (price <= 0 || price >= 100_000_000) continue
+
+    // Nama produk = teks sebelum angka terakhir
+    const name = cleaned.substring(0, lastNum.index).replace(/[\s,:;\-–—|]+$/, '').trim()
+
+    if (!name || /^\d+$/.test(name)) continue
+
+    if (totalKeywords.test(name)) {
+      totalLine = { name, price }
+    } else {
+      items.push({ name, price })
     }
   }
 
@@ -39,6 +87,23 @@ function parseReceipt(text) {
     totalAmount = totalLine.price
   } else if (items.length > 0) {
     totalAmount = items.reduce((s, i) => s + i.price, 0)
+  }
+
+  // Fallback: filter outlier items (harga terlalu kecil dibanding rata-rata)
+  if (items.length > 2) {
+    const avg = items.reduce((s, i) => s + i.price, 0) / items.length
+    const filtered = items.filter(i => i.price >= avg * 0.3)
+    if (filtered.length > 0 && filtered.length < items.length) {
+      // Keep filtered but only if we didn't lose too many
+      const lostCount = items.length - filtered.length
+      if (lostCount <= items.length * 0.4) {
+        items.length = 0
+        items.push(...filtered)
+        if (!totalLine && items.length > 0) {
+          totalAmount = items.reduce((s, i) => s + i.price, 0)
+        }
+      }
+    }
   }
 
   return { items, totalAmount }
@@ -130,7 +195,7 @@ export default function ScanPage() {
     const pos = getPos(e)
     setIsDragging(true)
     setDragStart(pos)
-    setCrop({ x: pos.x, y: pos.y, w: 0, h: 0 })
+    setCrop({ x: pos.x, y: pos.y, w: 1, h: 1 })
   }
 
   const handleMouseMove = (e) => {
@@ -436,17 +501,16 @@ export default function ScanPage() {
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-gray-50 text-gray-700 font-semibold focus:outline-none" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Tanggal</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Catatan</label>
-                <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Dari scan struk"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Tanggal</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Catatan</label>
+              <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Dari scan struk" rows={3}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none" />
             </div>
 
             <button onClick={handleSave} disabled={saving || !categoryId}
