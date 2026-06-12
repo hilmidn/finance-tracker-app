@@ -124,7 +124,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
   y += 6
 
   if (walletSummary && walletSummary.length) {
-    const wBody = walletSummary.map(w => [w.icon ? `${w.icon} ${w.name}` : w.name, rp(w.balance)])
+    const wBody = walletSummary.map(w => [w.name, rp(w.balance)])
     wBody.push([{ content: 'Total Saldo', colSpan: 1, styles: { fontStyle: 'bold', fontSize: 9 } },
                 { content: rp(walletSummary.reduce((s, w) => s + w.balance, 0)), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }])
 
@@ -137,11 +137,11 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: H.indigo, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
       columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: 55, halign: 'right', fontStyle: 'bold' },
+        0: { cellWidth: 'auto', fontStyle: 'bold' },
+        1: { cellWidth: 60, halign: 'right', fontStyle: 'bold' },
       },
       margin: { left: ML, right: MR },
-      tableWidth: 135,
+      tableWidth: CW,
     })
     y = doc.lastAutoTable.finalY + 10
   }
