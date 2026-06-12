@@ -5,6 +5,7 @@ import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
 import { useTransactions } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
+import { supabase } from '../lib/supabase'
 import { exportToPDF } from '../utils/exportPdf'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
@@ -23,15 +24,53 @@ export default function TransactionsPage({ user }) {
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const savingsTransactions = transactions.filter(
       t => t.__type === 'transfer' && t._raw?.to_wallet?.is_savings
     )
+
+    // Fetch wallet balances for ringkasan dompet
+    const { data: wallets } = await supabase
+      .from('wallets')
+      .select('id, name, icon, initial_balance, is_savings')
+      .eq('user_id', userId)
+
+    const { data: txData } = await supabase
+      .from('transactions')
+      .select('wallet_id, type, amount')
+      .eq('user_id', userId)
+
+    const { data: trData } = await supabase
+      .from('transfers')
+      .select('from_wallet_id, to_wallet_id, amount')
+      .eq('user_id', userId)
+
+    // Compute balances
+    const bal = {}
+    wallets?.forEach(w => { bal[w.id] = w.initial_balance || 0 })
+    txData?.forEach(t => {
+      if (!t.wallet_id) return
+      if (t.type === 'pemasukan') bal[t.wallet_id] = (bal[t.wallet_id] || 0) + t.amount
+      else bal[t.wallet_id] = (bal[t.wallet_id] || 0) - t.amount
+    })
+    trData?.forEach(t => {
+      if (t.from_wallet_id) bal[t.from_wallet_id] = (bal[t.from_wallet_id] || 0) - t.amount
+      if (t.to_wallet_id) bal[t.to_wallet_id] = (bal[t.to_wallet_id] || 0) + t.amount
+    })
+
+    const walletSummary = wallets?.map(w => ({
+      name: w.name,
+      icon: w.icon || (w.is_savings ? '🐷' : '💳'),
+      balance: bal[w.id] || 0,
+      is_savings: w.is_savings,
+    })) || []
+
     exportToPDF({
       transactions,
       user,
       monthLabel,
       savingsTransactions,
+      walletSummary,
     })
   }
 
