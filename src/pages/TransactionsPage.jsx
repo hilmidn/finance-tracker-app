@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { Plus, ArrowLeftRight, Download } from 'lucide-react'
+import { format } from 'date-fns'
+import { id } from 'date-fns/locale'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
@@ -7,11 +10,11 @@ import { useTransactions } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { supabase } from '../lib/supabase'
 import { exportToPDF } from '../utils/exportPdf'
-import { format } from 'date-fns'
-import { id } from 'date-fns/locale'
 
-export default function TransactionsPage({ user }) {
-  const userId = user.id
+export default function TransactionsPage() {
+  const user = useSelector((s) => s.auth.user)
+  const userId = user?.id
+
   const [month, setMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -25,27 +28,11 @@ export default function TransactionsPage({ user }) {
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
 
   const handleExport = async () => {
-    const savingsTransactions = transactions.filter(
-      t => t.__type === 'transfer' && t._raw?.to_wallet?.is_savings
-    )
+    const savingsTransactions = transactions.filter(t => t.__type === 'transfer' && t._raw?.to_wallet?.is_savings)
+    const { data: wallets } = await supabase.from('wallets').select('id, name, icon, initial_balance, is_savings').eq('user_id', userId)
+    const { data: txData } = await supabase.from('transactions').select('wallet_id, type, amount').eq('user_id', userId)
+    const { data: trData } = await supabase.from('transfers').select('from_wallet_id, to_wallet_id, amount').eq('user_id', userId)
 
-    // Fetch wallet balances for ringkasan dompet
-    const { data: wallets } = await supabase
-      .from('wallets')
-      .select('id, name, icon, initial_balance, is_savings')
-      .eq('user_id', userId)
-
-    const { data: txData } = await supabase
-      .from('transactions')
-      .select('wallet_id, type, amount')
-      .eq('user_id', userId)
-
-    const { data: trData } = await supabase
-      .from('transfers')
-      .select('from_wallet_id, to_wallet_id, amount')
-      .eq('user_id', userId)
-
-    // Compute balances
     const bal = {}
     wallets?.forEach(w => { bal[w.id] = w.initial_balance || 0 })
     txData?.forEach(t => {
@@ -65,13 +52,7 @@ export default function TransactionsPage({ user }) {
       is_savings: w.is_savings,
     })) || []
 
-    exportToPDF({
-      transactions,
-      user,
-      monthLabel,
-      savingsTransactions,
-      walletSummary,
-    })
+    exportToPDF({ transactions, user, monthLabel, savingsTransactions, walletSummary })
   }
 
   return (
@@ -80,18 +61,11 @@ export default function TransactionsPage({ user }) {
         <h1 className="text-xl font-bold">Transaksi</h1>
         <div className="flex gap-2">
           {transactions.length > 0 && (
-            <button
-              onClick={handleExport}
-              className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 active:scale-95 transition-all"
-              title="Export PDF"
-            >
+            <button onClick={handleExport} className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 active:scale-95 transition-all" title="Export PDF">
               <Download size={20} />
             </button>
           )}
-          <button
-            onClick={() => { setEditTx(null); setShowForm(true) }}
-            className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
-          >
+          <button onClick={() => { setEditTx(null); setShowForm(true) }} className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">
             <Plus size={22} />
           </button>
         </div>
@@ -102,9 +76,7 @@ export default function TransactionsPage({ user }) {
       <div className="space-y-2">
         {loading ? (
           <div className="space-y-2">
-            {[1,2,3].map(i => (
-              <div key={i} className="h-16 bg-gray-200 rounded-xl animate-pulse" />
-            ))}
+            {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-xl animate-pulse" />)}
           </div>
         ) : transactions.length === 0 ? (
           <div className="text-center py-16">
@@ -147,8 +119,7 @@ export default function TransactionsPage({ user }) {
           userId={userId}
           onSubmit={editTx ? (data) => {
             updateTransaction(editTx.id, data)
-            setShowForm(false)
-            setEditTx(null)
+            setShowForm(false); setEditTx(null)
           } : async (tx) => {
             await addTransaction(tx)
             setShowForm(false)

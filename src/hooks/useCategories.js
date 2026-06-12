@@ -1,78 +1,62 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import db from '../db/local'
 
+const catKey = (uid) => ['categories', uid]
+
 export function useCategories(userId) {
-  const [categories, setCategories] = useState({ pemasukan: [], pengeluaran: [] })
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const key = catKey(userId)
 
-  const fetchCategories = useCallback(async () => {
-    if (!userId) return
-    setLoading(true)
-
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', userId)
-      .order('name')
-
-    if (!error && data) {
+  const allQuery = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories').select('*').eq('user_id', userId).order('name')
+      if (error) throw error
       // Cache to Dexie
-      await db.categories.bulkPut(data.map(c => ({ ...c, userId })))
-      setCategories({
-        pemasukan: data.filter(c => c.type === 'pemasukan'),
-        pengeluaran: data.filter(c => c.type === 'pengeluaran'),
-      })
-    } else {
-      // Offline — read from Dexie
-      const cached = await db.categories.where('userId').equals(userId).toArray()
-      if (cached.length > 0) {
-        setCategories({
-          pemasukan: cached.filter(c => c.type === 'pemasukan'),
-          pengeluaran: cached.filter(c => c.type === 'pengeluaran'),
-        })
+      await db.categories.bulkPut((data || []).map(c => ({ ...c, userId })))
+      const grouped = {
+        pemasukan: (data || []).filter(c => c.type === 'pemasukan'),
+        pengeluaran: (data || []).filter(c => c.type === 'pengeluaran'),
       }
-    }
-    setLoading(false)
-  }, [userId])
+      return grouped
+    },
+    enabled: !!userId,
+    staleTime: 60 * 1000,
+  })
 
-  useEffect(() => {
-    if (userId) fetchCategories()
-  }, [userId, fetchCategories])
+  const categories = allQuery.data ?? { pemasukan: [], pengeluaran: [] }
 
-  const addCategory = useCallback(async (name, type) => {
-    if (!userId) return { error: 'Not authenticated' }
-    const { data, error } = await supabase
-      .from('categories')
-      .insert({ name, type, user_id: userId })
-      .select()
-      .single()
-
-    if (!error && data) {
+  const addMutation = useMutation({
+    mutationFn: async ({ name, type }) => {
+      const { data, error } = await supabase
+        .from('categories').insert({ name, type, user_id: userId }).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: async (data) => {
       await db.categories.put({ ...data, userId })
-      setCategories(prev => ({
-        ...prev,
-        [type]: [...prev[type], data].sort((a, b) => a.name.localeCompare(b.name)),
-      }))
-    }
-    return { data, error }
-  }, [userId])
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
 
-  const deleteCategory = useCallback(async (id, type) => {
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', id)
-
-    if (!error) {
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from('categories').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: async (_data, id) => {
       await db.categories.delete(id)
-      setCategories(prev => ({
-        ...prev,
-        [type]: prev[type].filter(c => c.id !== id),
-      }))
-    }
-    return { error }
-  }, [])
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
 
-  return { categories, loading, fetchCategories, addCategory, deleteCategory }
+  return {
+    categories,
+    loading: allQuery.isLoading,
+    fetchCategories: () => queryClient.invalidateQueries({ queryKey: key }),
+    addCategory: (name, type) => addMutation.mutateAsync({ name, type }),
+    deleteCategory: (id, _type) => deleteMutation.mutateAsync(id),
+  }
 }

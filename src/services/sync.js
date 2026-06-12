@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase'
 import db from '../db/local'
+import { store } from '../store'
+import { setOnline, setSyncing, setPendingCount } from '../store/uiSlice'
 
 const SYNC_INTERVAL = 30000 // retry every 30s
 
@@ -85,18 +87,26 @@ async function syncTransfers() {
 async function doSync() {
   if (syncing || !isOnline) return
   syncing = true
+  store.dispatch(setSyncing(true))
   notify()
   try {
     await Promise.all([syncTransactions(), syncTransfers()])
+    // Update pending count after sync
+    const all = await db.transactions.toArray()
+    const allTr = await db.transfers.toArray()
+    const cnt = all.filter(t => t.synced === false).length + allTr.filter(t => t.synced === false).length
+    store.dispatch(setPendingCount(cnt))
   } catch (e) {
     console.warn('Sync failed, will retry:', e.message)
   }
   syncing = false
+  store.dispatch(setSyncing(false))
   notify()
 }
 
 function handleOnline() {
   isOnline = true
+  store.dispatch(setOnline(true))
   notify()
   doSync()
   clearInterval(timer)
@@ -105,6 +115,7 @@ function handleOnline() {
 
 function handleOffline() {
   isOnline = false
+  store.dispatch(setOnline(false))
   notify()
   clearInterval(timer)
 }

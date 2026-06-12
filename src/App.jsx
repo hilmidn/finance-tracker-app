@@ -1,5 +1,5 @@
+import { useSelector } from 'react-redux'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
@@ -7,9 +7,11 @@ import TransactionsPage from './pages/TransactionsPage'
 import WalletsPage from './pages/WalletsPage'
 import AnalysisPage from './pages/AnalysisPage'
 import SettingsPage from './pages/SettingsPage'
+import { useAuth } from './hooks/useAuth'
 
 function App() {
-  const { user, loading, signIn, signUp, signOut } = useAuth()
+  const { user, loading } = useSelector((s) => s.auth)
+  const { signIn, signUp, signOut } = useAuth()
 
   if (loading) {
     return (
@@ -27,11 +29,11 @@ function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<DashboardPage user={user} />} />
-          <Route path="/transactions" element={<TransactionsPage user={user} />} />
-          <Route path="/wallets" element={<WalletsPage userId={user.id} />} />
-          <Route path="/analysis" element={<AnalysisPage userId={user.id} />} />
-          <Route path="/settings" element={<SettingsPage userId={user.id} onSignOut={signOut} />} />
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/wallets" element={<WalletsPage />} />
+          <Route path="/analysis" element={<AnalysisPage />} />
+          <Route path="/settings" element={<SettingsPage onSignOut={signOut} />} />
         </Routes>
       </Layout>
     </BrowserRouter>

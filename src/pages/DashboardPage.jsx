@@ -1,108 +1,55 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import { Plus, ArrowLeftRight, PiggyBank, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import BalanceCard from '../components/BalanceCard'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
-import { useTransactions } from '../hooks/useTransactions'
+import { useTransactions, useSummary, useMonthlySavings } from '../hooks/useTransactions'
 import { useWallets } from '../hooks/useWallets'
 import { useCategories } from '../hooks/useCategories'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 
-export default function DashboardPage({ user }) {
-  const userId = user.id
+export default function DashboardPage() {
+  const user = useSelector((s) => s.auth.user)
+  const userId = user?.id
+
   const [month, setMonth] = useState(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
-  const [summary, setSummary] = useState(null)
-  const [summaryLoading, setSummaryLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState(null)
   const [walletBalances, setWalletBalances] = useState({})
   const [walletBalLoading, setWalletBalLoading] = useState(true)
-  const [monthlySavings, setMonthlySavings] = useState(0)
-  const [savingsLoading, setSavingsLoading] = useState(true)
 
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, getSummary, fetchTransactions, getMonthlySavings } = useTransactions(userId)
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
   const { wallets, getWalletBalances } = useWallets(userId)
   const { categories } = useCategories(userId)
+  const { data: summary } = useSummary(userId, month)
+  const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
 
-  useEffect(() => {
-    loadSummary()
-    fetchTransactions(month)
-    loadWalletBalances()
-    loadMonthlySavings()
-  }, [month])
+  // Load wallet balances
+  useState(() => {
+    getWalletBalances().then(b => { setWalletBalances(b); setWalletBalLoading(false) })
+  })
 
-  const loadWalletBalances = async () => {
-    setWalletBalLoading(true)
-    const b = await getWalletBalances()
-    setWalletBalances(b)
-    setWalletBalLoading(false)
-  }
-
-  const loadMonthlySavings = async () => {
-    setSavingsLoading(true)
-    const s = await getMonthlySavings(month)
-    setMonthlySavings(s)
-    setSavingsLoading(false)
-  }
-
-  const loadSummary = async () => {
-    setSummaryLoading(true)
-    const s = await getSummary(month)
-    setSummary(s)
-    setSummaryLoading(false)
-  }
-
-  const handleAdd = async (tx) => {
-    await addTransaction(tx)
-    loadSummary()
-    loadWalletBalances()
-    loadMonthlySavings()
-  }
-
-  const handleEdit = async (tx) => {
-    const { id, ...updates } = tx
-    await updateTransaction(id, updates)
-    loadSummary()
-    loadWalletBalances()
-  }
-
-  const handleDelete = async (id, isTransfer) => {
-    if (isTransfer) {
-      await deleteTransfer(id)
-    } else {
-      await deleteTransaction(id)
-    }
-    loadSummary()
-    loadWalletBalances()
-    loadMonthlySavings()
-  }
-
-  const recent = transactions.slice(0, 5)
-
-  // Display name from email or metadata
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-
-  // Morning greeting
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Pagi' : hour < 17 ? 'Siang' : 'Malam'
-
-  // Split wallets
   const operasionalWallets = wallets.filter(w => !w.is_savings)
   const savingsWallets = wallets.filter(w => w.is_savings)
   const totalBalance = Object.values(walletBalances).reduce((s, b) => s + (b || 0), 0)
   const operasionalBalance = operasionalWallets.reduce((s, w) => s + (walletBalances[w.id] || 0), 0)
   const savingsBalance = savingsWallets.reduce((s, w) => s + (walletBalances[w.id] || 0), 0)
 
+  const recent = transactions.slice(0, 5)
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Pagi' : hour < 17 ? 'Siang' : 'Malam'
+
   return (
     <div className="space-y-5">
-      {/* Header + greeting */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500">Selamat {greeting},</p>
@@ -116,16 +63,14 @@ export default function DashboardPage({ user }) {
         </button>
       </div>
 
-      {/* Balance Card — banking style */}
       <BalanceCard
         pemasukan={summary?.pemasukan}
         pengeluaran={summary?.pengeluaran}
         saldo={summary?.saldo}
         month={monthLabel}
-        loading={summaryLoading}
+        loading={!summary}
       />
 
-      {/* Saldo Breakdown — operasional vs tabungan */}
       {!walletBalLoading && wallets.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
@@ -143,8 +88,7 @@ export default function DashboardPage({ user }) {
         </div>
       )}
 
-      {/* Quick Stats Pills — now with Menabung */}
-      {summary && !summaryLoading && (
+      {summary && (
         <div className="flex gap-2">
           <div className="flex-1 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
             <div className="flex items-center gap-1 text-green-700 text-xs mb-0.5">
@@ -171,7 +115,6 @@ export default function DashboardPage({ user }) {
         </div>
       )}
 
-      {/* Operational Wallets Mini */}
       {operasionalWallets.length > 0 && (
         <div>
           <h2 className="font-semibold text-gray-800 mb-2">Dompet & Rekening</h2>
@@ -201,7 +144,6 @@ export default function DashboardPage({ user }) {
         </div>
       )}
 
-      {/* Savings Wallets Mini */}
       {savingsWallets.length > 0 && (
         <div>
           <h2 className="font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
@@ -213,16 +155,12 @@ export default function DashboardPage({ user }) {
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg">{w.icon || '🏦'}</span>
                   <span className="text-sm font-medium text-gray-700 truncate">{w.name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-100 text-amber-700">
-                    Tabungan
-                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-100 text-amber-700">Tabungan</span>
                 </div>
                 {walletBalLoading ? (
                   <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
                 ) : (
-                  <span className="text-sm font-bold text-amber-700">
-                    Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}
-                  </span>
+                  <span className="text-sm font-bold text-amber-700">Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}</span>
                 )}
               </div>
             ))}
@@ -230,7 +168,6 @@ export default function DashboardPage({ user }) {
         </div>
       )}
 
-      {/* Recent transactions */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-gray-800">Transaksi Terbaru</h2>
@@ -254,7 +191,10 @@ export default function DashboardPage({ user }) {
                 <TransactionItem
                   key={key}
                   tx={tx}
-                  onDelete={handleDelete}
+                  onDelete={(id, isTransfer) => {
+                    if (isTransfer) deleteTransfer(id)
+                    else deleteTransaction(id)
+                  }}
                   onEdit={(t) => {
                     if (t.__type !== 'transfer') {
                       setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id })
@@ -273,7 +213,14 @@ export default function DashboardPage({ user }) {
           categories={categories}
           editTx={editTx}
           userId={userId}
-          onSubmit={editTx ? (data) => handleEdit({ id: editTx.id, ...data }) : handleAdd}
+          onSubmit={editTx ? (data) => {
+            updateTransaction(editTx.id, data)
+            setShowForm(false)
+            setEditTx(null)
+          } : async (tx) => {
+            await addTransaction(tx)
+            setShowForm(false)
+          }}
           onClose={() => { setShowForm(false); setEditTx(null) }}
         />
       )}

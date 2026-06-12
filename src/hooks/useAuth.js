@@ -1,22 +1,23 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
+import { useDispatch } from 'react-redux'
 import { supabase } from '../lib/supabase'
+import { setUser, setLoading } from '../store/authSlice'
 
 export function useAuth() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const dispatch = useDispatch()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
+      dispatch(setUser(session?.user ?? null))
+      dispatch(setLoading(false))
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      dispatch(setUser(session?.user ?? null))
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [dispatch])
 
   const signIn = useCallback(async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -32,5 +33,5 @@ export function useAuth() {
     await supabase.auth.signOut()
   }, [])
 
-  return { user, loading, signIn, signUp, signOut }
+  return { signIn, signUp, signOut }
 }

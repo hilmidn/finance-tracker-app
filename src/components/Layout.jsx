@@ -1,8 +1,8 @@
+import { useSelector } from 'react-redux'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, ArrowLeftRight, BarChart3, Wallet, Settings } from 'lucide-react'
-import OfflineBanner from './OfflineBanner'
 import { useEffect, useState } from 'react'
-import db from '../db/local'
+import OfflineBanner from './OfflineBanner'
 
 const tabs = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -13,29 +13,9 @@ const tabs = [
 ]
 
 export default function Layout({ children }) {
-  const [pendingCount, setPendingCount] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    const check = async () => {
-      try {
-        const all = await db.transactions.toArray()
-        const allTr = await db.transfers.toArray()
-        if (!cancelled) {
-          setPendingCount(all.filter(t => t.synced === false).length + allTr.filter(t => t.synced === false).length)
-        }
-      } catch (e) {
-        console.warn('Dexie pending count failed:', e.message)
-      }
-    }
-    check()
-    const id = setInterval(check, 5000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [])
-
   return (
     <div className="flex flex-col min-h-dvh max-w-lg mx-auto bg-gray-50">
-      <OfflineBanner pendingCount={pendingCount} />
+      <OfflineBanner />
       <main className="flex-1 px-4 pt-3 pb-22 overflow-y-auto">
         {children}
       </main>
