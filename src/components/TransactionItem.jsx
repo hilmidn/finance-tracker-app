@@ -9,8 +9,8 @@ export default function TransactionItem({ tx, onDelete, onEdit }) {
     const from = tx._raw?.from_wallet
     const to = tx._raw?.to_wallet
     return (
-      <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3.5 shadow-sm border border-gray-100 active:bg-gray-50 transition-colors">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 shrink-0">
+      <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3.5 shadow-sm border border-gray-100 active:bg-gray-50 transition-colors relative">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 shrink-0 relative">
           <ArrowLeftRight size={18} />
         </div>
         <div className="flex-1 min-w-0">
@@ -48,9 +48,16 @@ export default function TransactionItem({ tx, onDelete, onEdit }) {
   const walletIcon = tx.wallets?.icon || '💳'
 
   return (
-    <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3.5 shadow-sm border border-gray-100 active:bg-gray-50 transition-colors">
+    <div className="flex items-center gap-3 bg-white rounded-xl px-4 py-3.5 shadow-sm border border-gray-100 active:bg-gray-50 transition-colors relative">
+      {/* Pending badge */}
+      {tx._pending && (
+        <div className="absolute -top-1 -right-1 z-10 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center shadow-sm">
+          <span className="text-[8px] text-white font-bold">!</span>
+        </div>
+      )}
+
       {/* Category icon circle */}
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold shrink-0 ${
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold shrink-0 relative ${
         isIncome ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'
       }`}>
         {catName[0]}
