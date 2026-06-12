@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { Plus, ArrowLeftRight, Download } from 'lucide-react'
 import { format } from 'date-fns'
@@ -11,6 +11,15 @@ import { useCategories } from '../hooks/useCategories'
 import { supabase } from '../lib/supabase'
 import { exportToPDF } from '../utils/exportPdf'
 
+function monthRange(month) {
+  if (!month) return null
+  const [y, m] = month.split('-')
+  return {
+    start: `${y}-${m}-01`,
+    end: new Date(y, parseInt(m), 0).toISOString().split('T')[0],
+  }
+}
+
 export default function TransactionsPage() {
   const user = useSelector((s) => s.auth.user)
   const userId = user?.id
@@ -22,8 +31,15 @@ export default function TransactionsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState(null)
 
-  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, fetchTransactions } = useTransactions(userId)
+  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
   const { categories } = useCategories(userId)
+
+  // Filter by selected month locally
+  const filteredTransactions = useMemo(() => {
+    const r = monthRange(month)
+    if (!r) return transactions
+    return transactions.filter(t => t.date >= r.start && t.date <= r.end)
+  }, [transactions, month])
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
 
@@ -71,25 +87,25 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      <MonthPicker value={month} onChange={(m) => { setMonth(m); fetchTransactions(m) }} />
+      <MonthPicker value={month} onChange={setMonth} />
 
       <div className="space-y-2">
         {loading ? (
           <div className="space-y-2">
             {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-xl animate-pulse" />)}
           </div>
-        ) : transactions.length === 0 ? (
+        ) : filteredTransactions.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-100 rounded-2xl mb-3">
               <ArrowLeftRight size={24} className="text-gray-400" />
             </div>
             <p className="text-gray-400 text-sm">Belum ada transaksi</p>
-            <p className="text-gray-300 text-xs mt-1">Bulan ini masih kosong</p>
+            <p className="text-gray-300 text-xs mt-1">Bulan {format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })} masih kosong</p>
           </div>
         ) : (
           <>
-            <div className="text-xs text-gray-400 font-medium px-1">{transactions.length} transaksi</div>
-            {transactions.map(tx => {
+            <div className="text-xs text-gray-400 font-medium px-1">{filteredTransactions.length} transaksi</div>
+            {filteredTransactions.map(tx => {
               const key = tx.__type === 'transfer' ? `tr_${tx._raw?.id}` : `tx_${tx.id}`
               return (
                 <TransactionItem
