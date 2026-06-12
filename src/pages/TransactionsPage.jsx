@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSelector } from 'react-redux'
-import { Plus, ArrowLeftRight, Download, BarChart3, List, TrendingUp, TrendingDown, PiggyBank, ChartPie, Lightbulb } from 'lucide-react'
+import { Plus, ArrowLeftRight, Download, BarChart3, List, TrendingUp, TrendingDown, PiggyBank, ChartPie, Lightbulb, Filter, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import TransactionItem from '../components/TransactionItem'
@@ -32,18 +32,48 @@ export default function TransactionsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState(null)
 
+  // Filters
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterDateStart, setFilterDateStart] = useState('')
+  const [filterDateEnd, setFilterDateEnd] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Reset date range when month changes
+  useEffect(() => {
+    const r = monthRange(month)
+    if (r) {
+      setFilterDateStart(r.start)
+      setFilterDateEnd(r.end)
+    }
+  }, [month])
+
   const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, getSavingsHistory } = useTransactions(userId)
   const { categories } = useCategories(userId)
   const { data: summary, isLoading: summaryLoading } = useSummary(userId, month)
   const { data: breakdown = [], isLoading: breakdownLoading } = useCategoryBreakdown(userId, month)
   const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
 
-  // Filter transactions by selected month locally
+  // Filter transactions by month, category, and date range
   const filteredTransactions = useMemo(() => {
     const r = monthRange(month)
     if (!r) return transactions
-    return transactions.filter(t => t.date >= r.start && t.date <= r.end)
-  }, [transactions, month])
+    let list = transactions.filter(t => t.date >= r.start && t.date <= r.end)
+
+    // Category filter
+    if (filterCategory) {
+      list = list.filter(t => t.category_id === parseInt(filterCategory))
+    }
+
+    // Date range filter (within the month)
+    if (filterDateStart) {
+      list = list.filter(t => t.date >= filterDateStart)
+    }
+    if (filterDateEnd) {
+      list = list.filter(t => t.date <= filterDateEnd)
+    }
+
+    return list
+  }, [transactions, month, filterCategory, filterDateStart, filterDateEnd])
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
   const loadingAnalisis = summaryLoading || breakdownLoading
@@ -78,6 +108,12 @@ export default function TransactionsPage() {
     }
   })
   const maxSavings = savingsHistory.length > 0 ? Math.max(...savingsHistory.map(s => s.total), 1) : 1
+
+  // Combined categories for filter dropdown
+  const allCategories = useMemo(() => {
+    const all = [...(categories.pengeluaran || []), ...(categories.pemasukan || [])]
+    return all.sort((a, b) => a.name.localeCompare(b.name))
+  }, [categories])
 
   const barColors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-cyan-500', 'bg-teal-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500']
 
@@ -153,7 +189,69 @@ export default function TransactionsPage() {
             </div>
           ) : (
             <>
-              <div className="text-xs text-gray-400 font-medium px-1">{filteredTransactions.length} transaksi</div>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs text-gray-400 font-medium">{filteredTransactions.length} transaksi</span>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                    showFilters || filterCategory ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <Filter size={13} />
+                  {filterCategory ? 'Tersaring' : 'Filter'}
+                </button>
+              </div>
+
+              {/* Filter bar */}
+              {showFilters && (
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-700">Filter</span>
+                    <button
+                      onClick={() => { setFilterCategory(''); const r = monthRange(month); if (r) { setFilterDateStart(r.start); setFilterDateEnd(r.end) } }}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Kategori</label>
+                    <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="">Semua kategori</option>
+                      {allCategories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date range */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Dari</label>
+                      <input type="date" value={filterDateStart}
+                        onChange={e => setFilterDateStart(e.target.value)}
+                        min={monthRange(month)?.start}
+                        max={filterDateEnd || monthRange(month)?.end}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Sampai</label>
+                      <input type="date" value={filterDateEnd}
+                        onChange={e => setFilterDateEnd(e.target.value)}
+                        min={filterDateStart || monthRange(month)?.start}
+                        max={monthRange(month)?.end}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {filteredTransactions.map(tx => {
                 const key = tx.__type === 'transfer' ? `tr_${tx._raw?.id}` : `tx_${tx.id}`
                 return (
