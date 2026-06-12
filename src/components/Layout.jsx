@@ -3,13 +3,13 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { LayoutDashboard, ArrowLeftRight, Wallet, Settings } from 'lucide-react'
 import OfflineBanner from './OfflineBanner'
 
-const tabs = [
+const tabsLeft = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transaksi' },
-  { to: '/wallets', icon: Wallet, label: 'Dompet' },
 ]
 
 const tabsRight = [
+  { to: '/wallets', icon: Wallet, label: 'Dompet' },
   { to: '/settings', icon: Settings, label: 'Pengaturan' },
 ]
 
@@ -26,7 +26,7 @@ export default function Layout({ children }) {
       <nav className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white/95 backdrop-blur-lg border-t border-gray-200 safe-area-bottom z-40">
         <div className="flex justify-around items-center py-1.5 px-2">
           {/* Left tabs */}
-          {tabs.map(({ to, icon: Icon, label }) => (
+          {tabsLeft.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
