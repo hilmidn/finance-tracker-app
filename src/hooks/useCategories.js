@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import db from '../db/local'
 
 export function useCategories(userId) {
   const [categories, setCategories] = useState({ pemasukan: [], pengeluaran: [] })
@@ -16,10 +17,21 @@ export function useCategories(userId) {
       .order('name')
 
     if (!error && data) {
+      // Cache to Dexie
+      await db.categories.bulkPut(data.map(c => ({ ...c, userId })))
       setCategories({
         pemasukan: data.filter(c => c.type === 'pemasukan'),
         pengeluaran: data.filter(c => c.type === 'pengeluaran'),
       })
+    } else {
+      // Offline — read from Dexie
+      const cached = await db.categories.where('userId').equals(userId).toArray()
+      if (cached.length > 0) {
+        setCategories({
+          pemasukan: cached.filter(c => c.type === 'pemasukan'),
+          pengeluaran: cached.filter(c => c.type === 'pengeluaran'),
+        })
+      }
     }
     setLoading(false)
   }, [userId])
@@ -36,7 +48,8 @@ export function useCategories(userId) {
       .select()
       .single()
 
-    if (!error) {
+    if (!error && data) {
+      await db.categories.put({ ...data, userId })
       setCategories(prev => ({
         ...prev,
         [type]: [...prev[type], data].sort((a, b) => a.name.localeCompare(b.name)),
@@ -52,6 +65,7 @@ export function useCategories(userId) {
       .eq('id', id)
 
     if (!error) {
+      await db.categories.delete(id)
       setCategories(prev => ({
         ...prev,
         [type]: prev[type].filter(c => c.id !== id),

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { X, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import db from '../db/local'
 
-export default function TransactionForm({ categories, onSubmit, onClose, editTx }) {
+export default function TransactionForm({ categories, onSubmit, onClose, editTx, userId }) {
   const [type, setType] = useState(editTx?.type || 'pengeluaran')
   const [categoryId, setCategoryId] = useState(editTx?.category_id?.toString() || '')
   const [walletId, setWalletId] = useState(editTx?.wallet_id?.toString() || '')
@@ -13,10 +14,19 @@ export default function TransactionForm({ categories, onSubmit, onClose, editTx 
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    supabase.from('wallets').select('*').eq('is_savings', false).order('created_at').then(({ data }) => {
-      if (data) setWallets(data)
-    })
-  }, [])
+    (async () => {
+      const { data } = await supabase.from('wallets').select('*').eq('is_savings', false).order('created_at')
+      if (data) {
+        // Cache to Dexie
+        await db.wallets.bulkPut(data.map(w => ({ ...w, userId })))
+        setWallets(data)
+        return
+      }
+      // Fallback: read from Dexie
+      const cached = await db.wallets.where('userId').equals(userId).toArray()
+      setWallets(cached.filter(w => !w.is_savings))
+    })()
+  }, [userId])
 
   const catList = categories[type] || []
 

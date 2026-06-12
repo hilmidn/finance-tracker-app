@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import db from '../db/local'
 
 export function useWallets(userId) {
   const [wallets, setWallets] = useState([])
@@ -15,7 +16,15 @@ export function useWallets(userId) {
       .eq('user_id', userId)
       .order('created_at')
 
-    if (!error) setWallets(data || [])
+    if (!error && data) {
+      setWallets(data)
+      // Cache to Dexie
+      await db.wallets.bulkPut(data.map(w => ({ ...w, userId })))
+    } else {
+      // Offline — read from Dexie
+      const cached = await db.wallets.where('userId').equals(userId).toArray()
+      setWallets(cached || [])
+    }
     setLoading(false)
   }, [userId])
 
@@ -32,6 +41,7 @@ export function useWallets(userId) {
       .single()
 
     if (!error && data) {
+      await db.wallets.put({ ...data, userId })
       setWallets(prev => [...prev, data])
     }
     return { data, error }
@@ -46,10 +56,11 @@ export function useWallets(userId) {
       .single()
 
     if (!error && data) {
+      await db.wallets.put({ ...data, userId })
       setWallets(prev => prev.map(w => w.id === id ? data : w))
     }
     return { data, error }
-  }, [])
+  }, [userId])
 
   const deleteWallet = useCallback(async (id) => {
     const { error } = await supabase
@@ -58,6 +69,7 @@ export function useWallets(userId) {
       .eq('id', id)
 
     if (!error) {
+      await db.wallets.delete(id)
       setWallets(prev => prev.filter(w => w.id !== id))
     }
     return { error }
@@ -67,7 +79,6 @@ export function useWallets(userId) {
   const getWalletBalances = useCallback(async () => {
     if (!userId) return {}
 
-    // Get all income/expense per wallet from transactions
     const { data: txData, error: txError } = await supabase
       .from('transactions')
       .select('wallet_id, type, amount')
@@ -75,19 +86,16 @@ export function useWallets(userId) {
 
     if (txError) return {}
 
-    // Get all transfers
     const { data: transferData, error: transferError } = await supabase
       .from('transfers')
       .select('from_wallet_id, to_wallet_id, amount')
       .eq('user_id', userId)
 
-    // Calculate balance per wallet
     const balances = {}
     wallets.forEach(w => {
       balances[w.id] = w.initial_balance || 0
     })
 
-    // Add income, subtract expense
     txData?.forEach(tx => {
       if (!tx.wallet_id) return
       if (tx.type === 'pemasukan') {
@@ -97,7 +105,6 @@ export function useWallets(userId) {
       }
     })
 
-    // Subtract transfers out, add transfers in
     transferData?.forEach(tr => {
       if (tr.from_wallet_id) {
         balances[tr.from_wallet_id] = (balances[tr.from_wallet_id] || 0) - tr.amount

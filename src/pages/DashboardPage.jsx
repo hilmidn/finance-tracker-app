@@ -272,6 +272,7 @@ export default function DashboardPage({ user }) {
         <TransactionForm
           categories={categories}
           editTx={editTx}
+          userId={userId}
           onSubmit={editTx ? (data) => handleEdit({ id: editTx.id, ...data }) : handleAdd}
           onClose={() => { setShowForm(false); setEditTx(null) }}
         />

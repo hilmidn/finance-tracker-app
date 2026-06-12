@@ -144,6 +144,7 @@ export default function TransactionsPage({ user }) {
         <TransactionForm
           categories={categories}
           editTx={editTx}
+          userId={userId}
           onSubmit={editTx ? (data) => {
             updateTransaction(editTx.id, data)
             setShowForm(false)
