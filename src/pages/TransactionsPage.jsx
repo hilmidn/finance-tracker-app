@@ -220,31 +220,41 @@ export default function TransactionsPage() {
                 </button>
               </div>
 
-              {/* Category multi-select */}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Kategori</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableCategories.map(cat => {
-                    const selected = filterCategories.includes(cat.id)
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          setFilterCategories(prev =>
-                            selected ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+              {/* Category multi-select — separated by type */}
+              <div className="space-y-2">
+                {['pengeluaran', 'pemasukan'].map(type => {
+                  const cats = availableCategories.filter(c => c.type === type)
+                  if (cats.length === 0) return null
+                  return (
+                    <div key={type}>
+                      <label className="block text-xs text-gray-500 mb-1.5">
+                        Kategori {type === 'pengeluaran' ? 'Pengeluaran' : 'Pemasukan'}
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {cats.map(cat => {
+                          const selected = filterCategories.includes(cat.id)
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => {
+                                setFilterCategories(prev =>
+                                  selected ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                                )
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                selected
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              {cat.name}
+                            </button>
                           )
-                        }}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                          selected
-                            ? 'bg-indigo-600 text-white border-indigo-600'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        {cat.name}
-                      </button>
-                    )
-                  })}
-                </div>
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Date range */}
