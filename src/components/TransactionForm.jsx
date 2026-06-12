@@ -3,13 +3,13 @@ import { X, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import db from '../db/local'
 
-export default function TransactionForm({ categories, onSubmit, onClose, editTx, userId }) {
+export default function TransactionForm({ categories, onSubmit, onClose, editTx, userId, scanResult }) {
   const [type, setType] = useState(editTx?.type || 'pengeluaran')
   const [categoryId, setCategoryId] = useState(editTx?.category_id?.toString() || '')
   const [walletId, setWalletId] = useState(editTx?.wallet_id?.toString() || '')
   const [wallets, setWallets] = useState([])
-  const [amount, setAmount] = useState(editTx?.amount?.toString() || '')
-  const [note, setNote] = useState(editTx?.note || '')
+  const [amount, setAmount] = useState(editTx?.amount?.toString() || scanResult?.amount?.toString() || '')
+  const [note, setNote] = useState(editTx?.note || scanResult?.note || '')
   const [date, setDate] = useState(editTx?.date || new Date().toISOString().split('T')[0])
   const [submitting, setSubmitting] = useState(false)
 

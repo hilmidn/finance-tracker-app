@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
-import { Plus, ArrowLeftRight, Download } from 'lucide-react'
+import { Plus, ArrowLeftRight, Download, Scan } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
+import ScanInvoiceModal from '../components/ScanInvoiceModal'
 import MonthPicker from '../components/MonthPicker'
 import { useTransactions } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
@@ -21,6 +22,8 @@ export default function TransactionsPage() {
   })
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState(null)
+  const [showScan, setShowScan] = useState(false)
+  const [scanResult, setScanResult] = useState(null)
 
   const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, fetchTransactions } = useTransactions(userId)
   const { categories } = useCategories(userId)
@@ -55,6 +58,18 @@ export default function TransactionsPage() {
     exportToPDF({ transactions, user, monthLabel, savingsTransactions, walletSummary })
   }
 
+  const handleScanResult = (result) => {
+    setScanResult(result)
+    setEditTx(null)
+    setShowForm(true)
+  }
+
+  const handleCloseForm = () => {
+    setShowForm(false)
+    setEditTx(null)
+    setScanResult(null)
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -65,6 +80,9 @@ export default function TransactionsPage() {
               <Download size={20} />
             </button>
           )}
+          <button onClick={() => setShowScan(true)} className="bg-emerald-50 text-emerald-600 p-3 rounded-xl hover:bg-emerald-100 active:scale-95 transition-all" title="Scan Struk">
+            <Scan size={20} />
+          </button>
           <button onClick={() => { setEditTx(null); setShowForm(true) }} className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">
             <Plus size={22} />
           </button>
@@ -116,15 +134,23 @@ export default function TransactionsPage() {
         <TransactionForm
           categories={categories}
           editTx={editTx}
+          scanResult={scanResult}
           userId={userId}
           onSubmit={editTx ? (data) => {
             updateTransaction(editTx.id, data)
-            setShowForm(false); setEditTx(null)
+            setShowForm(false); setEditTx(null); setScanResult(null)
           } : async (tx) => {
             await addTransaction(tx)
-            setShowForm(false)
+            setShowForm(false); setScanResult(null)
           }}
-          onClose={() => { setShowForm(false); setEditTx(null) }}
+          onClose={handleCloseForm}
+        />
+      )}
+
+      {showScan && (
+        <ScanInvoiceModal
+          onClose={() => setShowScan(false)}
+          onUseResult={handleScanResult}
         />
       )}
     </div>
