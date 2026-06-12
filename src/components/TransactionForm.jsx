@@ -18,13 +18,15 @@ export default function TransactionForm({ categories, onSubmit, onClose, editTx,
       const { data } = await supabase.from('wallets').select('*').eq('is_savings', false).order('created_at')
       if (data) {
         // Cache to Dexie
-        await db.wallets.bulkPut(data.map(w => ({ ...w, userId })))
+        if (userId) await db.wallets.bulkPut(data.map(w => ({ ...w, userId })))
         setWallets(data)
         return
       }
       // Fallback: read from Dexie
-      const cached = await db.wallets.where('userId').equals(userId).toArray()
-      setWallets(cached.filter(w => !w.is_savings))
+      if (userId) {
+        const cached = await db.wallets.where('userId').equals(userId).toArray()
+        setWallets(cached.filter(w => !w.is_savings))
+      }
     })()
   }, [userId])
 

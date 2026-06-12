@@ -103,13 +103,41 @@ export function useTransactions(userId) {
       const txData = txResult.value.data
       const trData = trResult.status === 'fulfilled' ? (trResult.value || []) : []
       const trItems = shapeTransfers(trData)
-      const merged = mergeAndSort(txData, trItems)
-      setTransactions(merged)
+      let merged = mergeAndSort(txData, trItems)
 
       // Cache to Dexie for offline
       for (const tx of txData) {
         await db.transactions.put({ ...tx, clientId: `srv_${tx.id}`, serverId: tx.id, synced: true })
       }
+
+      // Merge pending offline items that haven't been synced yet
+      const pending = await db.transactions.where('synced').equals(false).toArray()
+      if (pending.length > 0) {
+        let filteredPending = pending
+        if (month) {
+          const r = monthRange(month)
+          if (r) filteredPending = pending.filter(t => t.date >= r.start && t.date <= r.end)
+        }
+        const pendingItems = filteredPending.filter(t => !t._deleted).map(t => ({
+          id: t.clientId,
+          __type: undefined,
+          type: t.type,
+          amount: t.amount,
+          note: t.note,
+          date: t.date,
+          created_at: t.created_at,
+          category_id: t.category_id,
+          wallet_id: t.wallet_id,
+          categories: { name: t._categoryName || 'Menunggu sinkron...' },
+          wallets: t._walletName ? { id: t.wallet_id, name: t._walletName, type: t._walletType, icon: t._walletIcon } : null,
+          _pending: true,
+        }))
+        // Prepend pending items (newest first by created_at)
+        pendingItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        merged = mergeAndSort([...pendingItems, ...txData], trItems)
+      }
+
+      setTransactions(merged)
     } else {
       // Offline — read from Dexie
       const cachedTx = await db.transactions.toArray()
@@ -174,6 +202,23 @@ export function useTransactions(userId) {
   useEffect(() => {
     if (userId) fetchTransactions()
   }, [userId, fetchTransactions])
+
+  // Helper: find a transaction in Dexie by serverId (number) or clientId (UUID)
+  async function findTxInDexie(id) {
+    const numId = Number(id)
+    if (!isNaN(numId)) {
+      return db.transactions.where('serverId').equals(numId).first()
+    }
+    return db.transactions.where('clientId').equals(id).first()
+  }
+
+  async function findTransferInDexie(id) {
+    const numId = Number(id)
+    if (!isNaN(numId)) {
+      return db.transfers.where('serverId').equals(numId).first()
+    }
+    return db.transfers.where('clientId').equals(id).first()
+  }
 
   // =========== ADD ===========
   const addTransaction = useCallback(async (tx) => {
@@ -255,7 +300,7 @@ export function useTransactions(userId) {
 
     // Offline — update local
     if (error?.message?.includes('Failed to fetch') || !navigator.onLine) {
-      const existing = await db.transactions.where('serverId').equals(Number(id)).first()
+      const existing = await findTxInDexie(id)
       if (existing) {
         await db.transactions.put({ ...existing, ...updates, synced: false })
         setPendingCount(c => c + 1)
@@ -276,14 +321,15 @@ export function useTransactions(userId) {
       .eq('id', id)
 
     if (!error) {
-      await db.transactions.where('serverId').equals(Number(id)).delete()
+      const existing = await findTxInDexie(id)
+      if (existing) await db.transactions.delete(existing.clientId)
       setTransactions(prev => prev.filter(t => t.id !== id))
       return { error: null }
     }
 
     // Offline — mark deleted
     if (error?.message?.includes('Failed to fetch') || !navigator.onLine) {
-      const existing = await db.transactions.where('serverId').equals(Number(id)).first()
+      const existing = await findTxInDexie(id)
       if (existing) {
         await db.transactions.put({ ...existing, _deleted: true, synced: false })
         setPendingCount(c => c + 1)
@@ -303,13 +349,14 @@ export function useTransactions(userId) {
       .eq('id', id)
 
     if (!error) {
-      await db.transfers.where('serverId').equals(Number(id)).delete()
+      const existing = await findTransferInDexie(id)
+      if (existing) await db.transfers.delete(existing.clientId)
       setTransactions(prev => prev.filter(t => !(t.__type === 'transfer' && t._raw?.id === id)))
       return { error: null }
     }
 
     if (error?.message?.includes('Failed to fetch') || !navigator.onLine) {
-      const existing = await db.transfers.where('serverId').equals(Number(id)).first()
+      const existing = await findTransferInDexie(id)
       if (existing) {
         await db.transfers.put({ ...existing, _deleted: true, synced: false })
         setPendingCount(c => c + 1)
@@ -341,10 +388,16 @@ export function useTransactions(userId) {
     }
 
     // Offline — compute from local
-    const cached = await db.transactions
-      .where('date')
-      .between(r.start, r.end, true, true)
-      .toArray()
+    let cached = []
+    try {
+      cached = await db.transactions
+        .where('date')
+        .between(r.start, r.end, true, true)
+        .toArray()
+    } catch (e) {
+      console.warn('Dexie query failed, falling back to all records:', e.message)
+      cached = await db.transactions.toArray()
+    }
     const filtered = cached.filter(t => !t._deleted)
     const pemasukan = filtered.filter(t => t.type === 'pemasukan').reduce((s, t) => s + t.amount, 0)
     const pengeluaran = filtered.filter(t => t.type === 'pengeluaran').reduce((s, t) => s + t.amount, 0)
@@ -372,10 +425,16 @@ export function useTransactions(userId) {
     }
 
     // Offline fallback
-    const cached = await db.transactions
-      .where('date')
-      .between(r.start, r.end, true, true)
-      .toArray()
+    let cached = []
+    try {
+      cached = await db.transactions
+        .where('date')
+        .between(r.start, r.end, true, true)
+        .toArray()
+    } catch (e) {
+      console.warn('Dexie query failed, falling back to all records:', e.message)
+      cached = await db.transactions.toArray()
+    }
     const filtered = cached.filter(t => !t._deleted && t.type === 'pengeluaran')
     const bk = {}
     filtered.forEach(t => { const n = t._categoryName || '—'; bk[n] = (bk[n] || 0) + t.amount })
