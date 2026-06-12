@@ -125,8 +125,18 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
 
   if (walletSummary && walletSummary.length) {
     const wBody = walletSummary.map(w => [w.name, rp(w.balance)])
-    wBody.push([{ content: 'Total Saldo', colSpan: 1, styles: { fontStyle: 'bold', fontSize: 9 } },
-                { content: rp(walletSummary.reduce((s, w) => s + w.balance, 0)), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }])
+    const totalOperasional = walletSummary.filter(w => !w.is_savings).reduce((s, w) => s + w.balance, 0)
+    const totalTabungan = walletSummary.filter(w => w.is_savings).reduce((s, w) => s + w.balance, 0)
+    wBody.push(
+      [{ content: 'Total Saldo Operasional', colSpan: 1, styles: { fontStyle: 'bold', fontSize: 9 } },
+       { content: rp(totalOperasional), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]
+    )
+    if (totalTabungan > 0) {
+      wBody.push(
+        [{ content: 'Total Saldo Tabungan', colSpan: 1, styles: { fontStyle: 'bold', fontSize: 9 } },
+         { content: rp(totalTabungan), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]
+      )
+    }
 
     autoTable(doc, {
       startY: y,
