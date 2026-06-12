@@ -4,7 +4,7 @@ import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
-import WalletsPage from './pages/WalletsPage'
+import ScanPage from './pages/ScanPage'
 import AnalysisPage from './pages/AnalysisPage'
 import SettingsPage from './pages/SettingsPage'
 import { useAuth } from './hooks/useAuth'
@@ -31,7 +31,7 @@ function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/wallets" element={<WalletsPage />} />
+          <Route path="/scan" element={<ScanPage />} />
           <Route path="/analysis" element={<AnalysisPage />} />
           <Route path="/settings" element={<SettingsPage onSignOut={signOut} />} />
         </Routes>
