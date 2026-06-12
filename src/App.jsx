@@ -5,7 +5,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
 import ScanPage from './pages/ScanPage'
-import AnalysisPage from './pages/AnalysisPage'
+import WalletsPage from './pages/WalletsPage'
 import SettingsPage from './pages/SettingsPage'
 import { useAuth } from './hooks/useAuth'
 
@@ -32,7 +32,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/scan" element={<ScanPage />} />
-          <Route path="/analysis" element={<AnalysisPage />} />
+          <Route path="/wallets" element={<WalletsPage />} />
           <Route path="/settings" element={<SettingsPage onSignOut={signOut} />} />
         </Routes>
       </Layout>

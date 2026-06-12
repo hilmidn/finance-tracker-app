@@ -1,16 +1,15 @@
 import { useSelector } from 'react-redux'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeftRight, BarChart3, Settings } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { LayoutDashboard, ArrowLeftRight, Wallet, Settings } from 'lucide-react'
 import OfflineBanner from './OfflineBanner'
 
 const tabs = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transaksi' },
+  { to: '/wallets', icon: Wallet, label: 'Dompet' },
 ]
 
 const tabsRight = [
-  { to: '/analysis', icon: BarChart3, label: 'Analisis' },
   { to: '/settings', icon: Settings, label: 'Pengaturan' },
 ]
 

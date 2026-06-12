@@ -1,59 +1,52 @@
 import { useSelector } from 'react-redux'
 import { useState } from 'react'
-import { Plus, Trash2, LogOut, Tag, Wallet as WalletIcon } from 'lucide-react'
-import WalletsPageInner from './WalletsPageInner'
+import { Plus, Trash2, LogOut, Tag } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function SettingsPage({ onSignOut }) {
   const userId = useSelector((s) => s.auth.user?.id)
-  const [activeTab, setActiveTab] = useState('dompet') // 'dompet' | 'kategori'
-
-  return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold">Pengaturan</h1>
-
-      {/* Tab navigation */}
-      <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50 p-1">
-        <button onClick={() => setActiveTab('dompet')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === 'dompet' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
-          <WalletIcon size={16} /> Dompet
-        </button>
-        <button onClick={() => setActiveTab('kategori')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === 'kategori' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
-          <Tag size={16} /> Kategori
-        </button>
-      </div>
-
-      {activeTab === 'dompet' ? (
-        <WalletsPageInner userId={userId} />
-      ) : (
-        <CategoryManager userId={userId} />
-      )}
-
-      <button onClick={onSignOut}
-        className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mt-4">
-        <LogOut size={18} /> Keluar
-      </button>
-    </div>
-  )
-}
-
-function CategoryManager({ userId }) {
-  const { categories, loading, addCategory, deleteCategory } = useCategories(userId)
   const [activeTab, setActiveTab] = useState('pengeluaran')
   const [showAdd, setShowAdd] = useState(false)
   const [newCat, setNewCat] = useState('')
+  const [categories, setCategories] = useState({ pengeluaran: [], pemasukan: [] })
+  const [loading, setLoading] = useState(true)
+
+  useState(() => {
+    if (!userId) return
+    ;(async () => {
+      const { data } = await supabase.from('categories').select('*').eq('user_id', userId)
+      if (data) {
+        setCategories({
+          pengeluaran: data.filter(c => c.type === 'pengeluaran'),
+          pemasukan: data.filter(c => c.type === 'pemasukan'),
+        })
+      }
+      setLoading(false)
+    })()
+  })
 
   const handleAdd = async () => {
     if (!newCat.trim()) return
-    const { error } = await addCategory(newCat.trim(), activeTab)
-    if (!error) { setNewCat(''); setShowAdd(false) }
+    const { data, error } = await supabase.from('categories').insert({ user_id: userId, name: newCat.trim(), type: activeTab }).select().single()
+    if (!error && data) {
+      setCategories(prev => ({ ...prev, [activeTab]: [...prev[activeTab], data] }))
+      setNewCat(''); setShowAdd(false)
+    }
+  }
+
+  const handleDelete = async (id, type) => {
+    const { error } = await supabase.from('categories').delete().eq('id', id)
+    if (!error) {
+      setCategories(prev => ({ ...prev, [type]: prev[type].filter(c => c.id !== id) }))
+    }
   }
 
   const catList = categories[activeTab] || []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <h1 className="text-xl font-bold">Pengaturan</h1>
+
       <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50 p-1">
         <button onClick={() => setActiveTab('pengeluaran')}
           className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === 'pengeluaran' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500'}`}>
@@ -66,7 +59,9 @@ function CategoryManager({ userId }) {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
-        {catList.length === 0 ? (
+        {loading ? (
+          <div className="space-y-2 p-4">{[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />)}</div>
+        ) : catList.length === 0 ? (
           <div className="text-center py-10">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-2xl mb-3">
               <Tag size={20} className="text-gray-400" />
@@ -82,7 +77,7 @@ function CategoryManager({ userId }) {
                 </div>
                 <span className="text-sm font-medium text-gray-800">{cat.name}</span>
               </div>
-              <button onClick={() => deleteCategory(cat.id, activeTab)}
+              <button onClick={() => handleDelete(cat.id, activeTab)}
                 className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
                 <Trash2 size={15} />
               </button>
@@ -107,42 +102,11 @@ function CategoryManager({ userId }) {
           <Plus size={18} /> Tambah Kategori
         </button>
       )}
+
+      <button onClick={onSignOut}
+        className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors mt-8">
+        <LogOut size={18} /> Keluar
+      </button>
     </div>
   )
-}
-
-function useCategories(userId) {
-  const [categories, setCategories] = useState({ pengeluaran: [], pemasukan: [] })
-  const [loading, setLoading] = useState(true)
-
-  useState(() => {
-    if (!userId) return
-    ;(async () => {
-      const { data } = await supabase.from('categories').select('*').eq('user_id', userId)
-      if (data) {
-        setCategories({
-          pengeluaran: data.filter(c => c.type === 'pengeluaran'),
-          pemasukan: data.filter(c => c.type === 'pemasukan'),
-        })
-      }
-      setLoading(false)
-    })()
-  })
-
-  const addCategory = async (name, type) => {
-    const { data, error } = await supabase.from('categories').insert({ user_id: userId, name, type }).select().single()
-    if (!error && data) {
-      setCategories(prev => ({ ...prev, [type]: [...prev[type], data] }))
-    }
-    return { data, error }
-  }
-
-  const deleteCategory = async (id, type) => {
-    const { error } = await supabase.from('categories').delete().eq('id', id)
-    if (!error) {
-      setCategories(prev => ({ ...prev, [type]: prev[type].filter(c => c.id !== id) }))
-    }
-  }
-
-  return { categories, loading, addCategory, deleteCategory }
 }
