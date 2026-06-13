@@ -19,7 +19,6 @@ export function useWallets(userId) {
       return data || []
     },
     enabled: !!userId,
-    staleTime: 60 * 1000,
   })
 
   // Offline fallback

@@ -20,7 +20,6 @@ export function useTransfers(userId) {
       return data || []
     },
     enabled: !!userId,
-    staleTime: 30 * 1000,
   })
 
   const addMutation = useMutation({

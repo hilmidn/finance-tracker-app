@@ -23,7 +23,6 @@ export function useCategories(userId) {
       return grouped
     },
     enabled: !!userId,
-    staleTime: 60 * 1000,
   })
 
   const categories = allQuery.data ?? { pemasukan: [], pengeluaran: [] }

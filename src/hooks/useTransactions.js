@@ -117,8 +117,6 @@ export function useTransactions(userId) {
       }
     },
     enabled: !!userId,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
   })
 
   // ── fetchTransactions(month) helper ──
@@ -348,7 +346,6 @@ export function useSummary(userId, month) {
       return { pemasukan, pengeluaran, saldo: pemasukan - pengeluaran, error: null }
     },
     enabled: !!userId && !!month,
-    staleTime: 30 * 1000,
   })
 }
 
@@ -369,7 +366,6 @@ export function useMonthlySavings(userId, month) {
       return data?.reduce((s, t) => s + t.amount, 0) || 0
     },
     enabled: !!userId && !!month,
-    staleTime: 30 * 1000,
   })
 }
 
@@ -388,6 +384,5 @@ export function useCategoryBreakdown(userId, month) {
       return Object.entries(bk).map(([n, t]) => ({ name: n, total: t })).sort((a, b) => b.total - a.total)
     },
     enabled: !!userId && !!month,
-    staleTime: 30 * 1000,
   })
 }
