@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Wallet, Building2, Smartphone, Trash2, Pencil, ArrowLeftRight, X, PiggyBank } from 'lucide-react'
 import { useWallets } from '../hooks/useWallets'
 import { useTransfers } from '../hooks/useTransfers'
+import { useTransactions } from '../hooks/useTransactions'
 import TransferForm from '../components/TransferForm'
 
 const WALLET_ICONS = { cash: '👛', bank: '🏦', 'e-wallet': '📱' }
@@ -12,20 +13,30 @@ const WALLET_TYPES = [
 ]
 
 export default function WalletsPageInner({ userId }) {
-  const { wallets, loading, addWallet, updateWallet, deleteWallet, getWalletBalances } = useWallets(userId)
+  const { wallets, loading, addWallet, updateWallet, deleteWallet } = useWallets(userId)
   const { transfers, addTransfer } = useTransfers(userId)
-  const [balances, setBalances] = useState({})
-  const [balLoading, setBalLoading] = useState(true)
+  const { transactions } = useTransactions(userId)
 
+  // Hitung saldo dari cache React Query — zero network
+  const balances = useMemo(() => {
+    const b = {}
+    wallets.forEach(w => { b[w.id] = w.initial_balance || 0 })
+    transactions.forEach(t => {
+      if (t.__type === 'transfer' && t._raw) {
+        if (t._raw.from_wallet_id) b[t._raw.from_wallet_id] = (b[t._raw.from_wallet_id] || 0) - t._raw.amount
+        if (t._raw.to_wallet_id) b[t._raw.to_wallet_id] = (b[t._raw.to_wallet_id] || 0) + t._raw.amount
+      } else if (t.wallet_id) {
+        if (t.type === 'pemasukan') b[t.wallet_id] = (b[t.wallet_id] || 0) + t.amount
+        else b[t.wallet_id] = (b[t.wallet_id] || 0) - t.amount
+      }
+    })
+    return b
+  }, [wallets, transactions])
   const [showAdd, setShowAdd] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({ name: '', type: 'cash', icon: '', initial_balance: '', is_savings: false })
   const [submitting, setSubmitting] = useState(false)
-
-  useState(() => {
-    getWalletBalances().then(b => { setBalances(b); setBalLoading(false) })
-  })
 
   const totalBalance = Object.values(balances).reduce((sum, b) => sum + (b || 0), 0)
   const operasionalBalance = wallets.filter(w => !w.is_savings).reduce((s, w) => s + (balances[w.id] || 0), 0)
@@ -42,7 +53,6 @@ export default function WalletsPageInner({ userId }) {
     }
     setSubmitting(false); setShowAdd(false); setEditId(null)
     setForm({ name: '', type: 'cash', icon: '', initial_balance: '', is_savings: false })
-    getWalletBalances().then(b => setBalances(b))
   }
 
   const handleEdit = (w) => {
@@ -53,7 +63,6 @@ export default function WalletsPageInner({ userId }) {
 
   const handleDelete = async (w) => {
     await deleteWallet(w.id)
-    getWalletBalances().then(b => setBalances(b))
   }
 
   return (
@@ -76,9 +85,9 @@ export default function WalletsPageInner({ userId }) {
 
       <div className="bg-gradient-to-r from-indigo-500 to-violet-500 rounded-2xl p-5 text-white shadow-xl shadow-indigo-200/50">
         <p className="text-sm text-indigo-200 font-medium">Total Saldo</p>
-        {balLoading ? <div className="h-10 w-48 bg-white/20 rounded-lg animate-pulse mt-2" />
+        {loading ? <div className="h-10 w-48 bg-white/20 rounded-lg animate-pulse mt-2" />
         : <p className="text-3xl font-bold tracking-tight mt-1">Rp {(totalBalance || 0).toLocaleString('id-ID')}</p>}
-        {!balLoading && wallets.length > 0 && (
+        {!loading && wallets.length > 0 && (
           <div className="flex gap-4 mt-3 pt-3 border-t border-white/15 text-sm">
             <div><p className="text-xs text-indigo-200">Operasional</p><p className="font-semibold text-white">Rp {(operasionalBalance || 0).toLocaleString('id-ID')}</p></div>
             <div><p className="text-xs text-amber-200">Tabungan</p><p className="font-semibold text-amber-200">Rp {(savingsBalance || 0).toLocaleString('id-ID')}</p></div>
@@ -130,7 +139,6 @@ export default function WalletsPageInner({ userId }) {
       {showTransfer && (
         <TransferForm wallets={wallets} onSubmit={async (tr) => {
           await addTransfer(tr); setShowTransfer(false);
-          getWalletBalances().then(b => setBalances(b))
         }} onClose={() => setShowTransfer(false)} />
       )}
 

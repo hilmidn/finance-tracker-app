@@ -8,6 +8,7 @@ import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
 import { useTransactions, useSummary, useCategoryBreakdown, useMonthlySavings } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
+import { useWallets } from '../hooks/useWallets'
 import { supabase } from '../lib/supabase'
 import { exportToPDF } from '../utils/exportPdf'
 
@@ -47,8 +48,9 @@ export default function TransactionsPage() {
     }
   }, [month])
 
-  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, getSavingsHistory } = useTransactions(userId)
+  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
   const { categories } = useCategories(userId)
+  const { wallets } = useWallets(userId)
   const { data: summary, isLoading: summaryLoading } = useSummary(userId, month)
   const { data: breakdown = [], isLoading: breakdownLoading } = useCategoryBreakdown(userId, month)
   const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
@@ -99,14 +101,26 @@ export default function TransactionsPage() {
     return t
   }, [summary, breakdown])
 
-  // Savings history
-  const [savingsHistory, setSavingsHistory] = useState([])
-  const [histLoading, setHistLoading] = useState(true)
-  useState(() => {
-    if (userId) {
-      getSavingsHistory().then(h => { setSavingsHistory(h); setHistLoading(false) })
+  // Savings history — computed dari cache, zero network
+  const savingsHistory = useMemo(() => {
+    const savingsIds = wallets.filter(w => w.is_savings).map(w => w.id)
+    if (savingsIds.length === 0) return []
+    const byMonth = {}
+    transactions.forEach(t => {
+      if (t.__type === 'transfer' && t._raw && savingsIds.includes(t._raw.to_wallet_id)) {
+        const k = t._raw.date.substring(0, 7)
+        byMonth[k] = (byMonth[k] || 0) + t._raw.amount
+      }
+    })
+    const months = []
+    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(); d.setMonth(d.getMonth() - i)
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      months.push({ month: names[d.getMonth()], key: k, total: byMonth[k] || 0 })
     }
-  })
+    return months
+  }, [wallets, transactions])
   const maxSavings = savingsHistory.length > 0 ? Math.max(...savingsHistory.map(s => s.total), 1) : 1
 
   // Combined categories for filter dropdown

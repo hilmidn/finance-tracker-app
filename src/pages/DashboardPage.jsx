@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { Plus, ArrowLeftRight, PiggyBank, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import BalanceCard from '../components/BalanceCard'
@@ -21,21 +21,30 @@ export default function DashboardPage() {
   })
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState(null)
-  const [walletBalances, setWalletBalances] = useState({})
-  const [walletBalLoading, setWalletBalLoading] = useState(true)
 
   const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
-  const { wallets, getWalletBalances } = useWallets(userId)
+  const { wallets, loading: walletsLoading } = useWallets(userId)
   const { categories } = useCategories(userId)
   const { data: summary } = useSummary(userId, month)
   const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
 
-  // Load wallet balances
-  useState(() => {
-    getWalletBalances().then(b => { setWalletBalances(b); setWalletBalLoading(false) })
-  })
+  // Hitung saldo dari cache React Query — zero network
+  const walletBalances = useMemo(() => {
+    const b = {}
+    wallets.forEach(w => { b[w.id] = w.initial_balance || 0 })
+    transactions.forEach(t => {
+      if (t.__type === 'transfer' && t._raw) {
+        if (t._raw.from_wallet_id) b[t._raw.from_wallet_id] = (b[t._raw.from_wallet_id] || 0) - t._raw.amount
+        if (t._raw.to_wallet_id) b[t._raw.to_wallet_id] = (b[t._raw.to_wallet_id] || 0) + t._raw.amount
+      } else if (t.wallet_id) {
+        if (t.type === 'pemasukan') b[t.wallet_id] = (b[t.wallet_id] || 0) + t.amount
+        else b[t.wallet_id] = (b[t.wallet_id] || 0) - t.amount
+      }
+    })
+    return b
+  }, [wallets, transactions])
 
   const operasionalWallets = wallets.filter(w => !w.is_savings)
   const savingsWallets = wallets.filter(w => w.is_savings)
@@ -71,7 +80,7 @@ export default function DashboardPage() {
         loading={!summary}
       />
 
-      {!walletBalLoading && wallets.length > 0 && (
+      {!walletsLoading && wallets.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
             <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
@@ -131,13 +140,9 @@ export default function DashboardPage() {
                     {w.type === 'cash' ? 'Tunai' : w.type === 'bank' ? 'Bank' : 'E-Wallet'}
                   </span>
                 </div>
-                {walletBalLoading ? (
-                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
-                ) : (
-                  <span className={`text-sm font-bold ${(walletBalances[w.id] || 0) >= 0 ? 'text-gray-900' : 'text-red-500'}`}>
-                    Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}
-                  </span>
-                )}
+                <span className={`text-sm font-bold ${(walletBalances[w.id] || 0) >= 0 ? 'text-gray-900' : 'text-red-500'}`}>
+                  Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}
+                </span>
               </div>
             ))}
           </div>
@@ -157,11 +162,7 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-gray-700 truncate">{w.name}</span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-100 text-amber-700">Tabungan</span>
                 </div>
-                {walletBalLoading ? (
-                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
-                ) : (
-                  <span className="text-sm font-bold text-amber-700">Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}</span>
-                )}
+                <span className="text-sm font-bold text-amber-700">Rp {(walletBalances[w.id] || 0).toLocaleString('id-ID')}</span>
               </div>
             ))}
           </div>
