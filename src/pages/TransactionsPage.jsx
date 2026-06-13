@@ -9,7 +9,6 @@ import MonthPicker from '../components/MonthPicker'
 import { useTransactions, useSummary, useCategoryBreakdown, useMonthlySavings } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useWallets } from '../hooks/useWallets'
-import { supabase } from '../lib/supabase'
 import { exportToPDF } from '../utils/exportPdf'
 
 function monthRange(month) {
@@ -48,7 +47,7 @@ export default function TransactionsPage() {
     }
   }, [month])
 
-  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
+  const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, txRaw, trRaw } = useTransactions(userId)
   const { categories } = useCategories(userId)
   const { wallets } = useWallets(userId)
   const { data: summary, isLoading: summaryLoading } = useSummary(userId, month)
@@ -148,17 +147,14 @@ export default function TransactionsPage() {
 
   const handleExport = async () => {
     const savingsTransactions = transactions.filter(t => t.__type === 'transfer' && t._raw?.to_wallet?.is_savings)
-    const { data: wallets } = await supabase.from('wallets').select('id, name, icon, initial_balance, is_savings').eq('user_id', userId)
-    const { data: txData } = await supabase.from('transactions').select('wallet_id, type, amount').eq('user_id', userId)
-    const { data: trData } = await supabase.from('transfers').select('from_wallet_id, to_wallet_id, amount').eq('user_id', userId)
     const bal = {}
     wallets?.forEach(w => { bal[w.id] = w.initial_balance || 0 })
-    txData?.forEach(t => {
+    txRaw?.forEach(t => {
       if (!t.wallet_id) return
       if (t.type === 'pemasukan') bal[t.wallet_id] = (bal[t.wallet_id] || 0) + t.amount
       else bal[t.wallet_id] = (bal[t.wallet_id] || 0) - t.amount
     })
-    trData?.forEach(t => {
+    trRaw?.forEach(t => {
       if (t.from_wallet_id) bal[t.from_wallet_id] = (bal[t.from_wallet_id] || 0) - t.amount
       if (t.to_wallet_id) bal[t.to_wallet_id] = (bal[t.to_wallet_id] || 0) + t.amount
     })
@@ -451,6 +447,7 @@ export default function TransactionsPage() {
       {showForm && (
         <TransactionForm
           categories={categories}
+          wallets={wallets}
           editTx={editTx}
           userId={userId}
           onSubmit={editTx ? (data) => {

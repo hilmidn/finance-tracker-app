@@ -1,35 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import db from '../db/local'
 
-export default function TransactionForm({ categories, onSubmit, onClose, editTx, userId }) {
+export default function TransactionForm({ categories, wallets, onSubmit, onClose, editTx, userId }) {
   const [type, setType] = useState(editTx?.type || 'pengeluaran')
   const [categoryId, setCategoryId] = useState(editTx?.category_id?.toString() || '')
   const [walletId, setWalletId] = useState(editTx?.wallet_id?.toString() || '')
-  const [wallets, setWallets] = useState([])
   const [amount, setAmount] = useState(editTx?.amount?.toString() || '')
   const [note, setNote] = useState(editTx?.note || '')
   const [date, setDate] = useState(editTx?.date || new Date().toISOString().split('T')[0])
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('wallets').select('*').eq('is_savings', false).order('created_at')
-      if (data) {
-        // Cache to Dexie
-        if (userId) await db.wallets.bulkPut(data.map(w => ({ ...w, userId })))
-        setWallets(data)
-        return
-      }
-      // Fallback: read from Dexie
-      if (userId) {
-        const cached = await db.wallets.where('userId').equals(userId).toArray()
-        setWallets(cached.filter(w => !w.is_savings))
-      }
-    })()
-  }, [userId])
-
+  const walletList = (wallets || []).filter(w => !w.is_savings)
   const catList = categories[type] || []
 
   const handleSubmit = async (e) => {
@@ -111,7 +92,7 @@ export default function TransactionForm({ categories, onSubmit, onClose, editTx,
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Pilih dompet (opsional)...</option>
-              {wallets.map(w => (
+              {walletList.map(w => (
                 <option key={w.id} value={w.id}>{w.icon || '💳'} {w.name}</option>
               ))}
             </select>

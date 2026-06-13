@@ -212,6 +212,7 @@ export default function DashboardPage() {
       {showForm && (
         <TransactionForm
           categories={categories}
+          wallets={wallets}
           editTx={editTx}
           userId={userId}
           onSubmit={editTx ? (data) => {

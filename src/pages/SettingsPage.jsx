@@ -1,47 +1,26 @@
 import { useSelector } from 'react-redux'
 import { useState } from 'react'
 import { Plus, Trash2, LogOut, Tag } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { useCategories } from '../hooks/useCategories'
 
 export default function SettingsPage({ onSignOut }) {
   const userId = useSelector((s) => s.auth.user?.id)
   const [activeTab, setActiveTab] = useState('pengeluaran')
   const [showAdd, setShowAdd] = useState(false)
   const [newCat, setNewCat] = useState('')
-  const [categories, setCategories] = useState({ pengeluaran: [], pemasukan: [] })
-  const [loading, setLoading] = useState(true)
 
-  useState(() => {
-    if (!userId) return
-    ;(async () => {
-      const { data } = await supabase.from('categories').select('*').eq('user_id', userId)
-      if (data) {
-        setCategories({
-          pengeluaran: data.filter(c => c.type === 'pengeluaran'),
-          pemasukan: data.filter(c => c.type === 'pemasukan'),
-        })
-      }
-      setLoading(false)
-    })()
-  })
+  const { categories, loading, addCategory, deleteCategory } = useCategories(userId)
+  const catList = categories[activeTab] || []
 
   const handleAdd = async () => {
     if (!newCat.trim()) return
-    const { data, error } = await supabase.from('categories').insert({ user_id: userId, name: newCat.trim(), type: activeTab }).select().single()
-    if (!error && data) {
-      setCategories(prev => ({ ...prev, [activeTab]: [...prev[activeTab], data] }))
-      setNewCat(''); setShowAdd(false)
-    }
+    await addCategory(newCat.trim(), activeTab)
+    setNewCat(''); setShowAdd(false)
   }
 
-  const handleDelete = async (id, type) => {
-    const { error } = await supabase.from('categories').delete().eq('id', id)
-    if (!error) {
-      setCategories(prev => ({ ...prev, [type]: prev[type].filter(c => c.id !== id) }))
-    }
+  const handleDelete = (id, type) => {
+    deleteCategory(id, type)
   }
-
-  const catList = categories[activeTab] || []
 
   return (
     <div className="space-y-5">

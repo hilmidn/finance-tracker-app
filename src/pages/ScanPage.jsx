@@ -3,7 +3,9 @@ import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { createWorker } from 'tesseract.js'
 import { Camera, Upload, X, AlertCircle, Check, ArrowLeft, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { useCategories } from '../hooks/useCategories'
+import { useWallets } from '../hooks/useWallets'
+import { useTransactions } from '../hooks/useTransactions'
 
 /**
  * Parse OCR text from Indonesian receipts into items + total.
@@ -137,14 +139,17 @@ export default function ScanPage() {
   const [error, setError] = useState('')
 
   // Save form
-  const [categories, setCategories] = useState([])
-  const [wallets, setWallets] = useState([])
   const [type, setType] = useState('pengeluaran')
   const [categoryId, setCategoryId] = useState('')
   const [walletId, setWalletId] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
+
+  // Hooks — React Query cached data, no direct Supabase
+  const { categories } = useCategories(userId)
+  const { wallets: allWallets } = useWallets(userId)
+  const { addTransaction } = useTransactions(userId)
 
   // Crop state
   const imageContainerRef = useRef(null)
@@ -155,17 +160,6 @@ export default function ScanPage() {
   const [cropSnapshot, setCropSnapshot] = useState(null) // crop state when drag started
   const [imageLoaded, setImageLoaded] = useState(false)
   const fileInputRef = useRef(null)
-
-  // Load categories + wallets
-  useEffect(() => {
-    if (!userId) return
-    ;(async () => {
-      const { data: cats } = await supabase.from('categories').select('*').eq('user_id', userId)
-      if (cats) setCategories(cats)
-      const { data: wall } = await supabase.from('wallets').select('*').eq('user_id', userId).eq('is_savings', false).order('created_at')
-      if (wall) setWallets(wall)
-    })()
-  }, [userId])
 
   useEffect(() => {
     return () => { if (imageUrl) URL.revokeObjectURL(imageUrl) }
@@ -363,10 +357,11 @@ export default function ScanPage() {
     if (!result.totalAmount || !categoryId) return
     setSaving(true)
     try {
-      const { error: saveErr } = await supabase
-        .from('transactions')
-        .insert({ user_id: userId, type, category_id: parseInt(categoryId), wallet_id: walletId ? parseInt(walletId) : null, amount: result.totalAmount, note, date })
-      if (saveErr) throw saveErr
+      await addTransaction({
+        type, category_id: parseInt(categoryId),
+        wallet_id: walletId ? parseInt(walletId) : null,
+        amount: result.totalAmount, note, date,
+      })
       navigate('/transactions')
     } catch (err) {
       setError(err.message || 'Gagal menyimpan')
@@ -375,7 +370,8 @@ export default function ScanPage() {
   }
 
   const amount = result.totalAmount || 0
-  const catList = categories.filter(c => c.type === type)
+  const catList = categories[type] || []
+  const walletList = (allWallets || []).filter(w => !w.is_savings)
 
   return (
     <div className="space-y-4">
@@ -601,7 +597,7 @@ export default function ScanPage() {
               <select value={walletId} onChange={e => setWalletId(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                 <option value="">Pilih dompet (opsional)...</option>
-                {wallets.map(w => <option key={w.id} value={w.id}>{WALLET_ICONS[w.type] || '💳'} {w.name}</option>)}
+                {walletList.map(w => <option key={w.id} value={w.id}>{WALLET_ICONS[w.type] || '💳'} {w.name}</option>)}
               </select>
             </div>
 
