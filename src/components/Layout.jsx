@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { LayoutDashboard, ArrowLeftRight, Wallet, Settings } from 'lucide-react'
 import OfflineBanner from './OfflineBanner'
 import InstallBanner from './InstallBanner'
+import PendingInviteBanner from './PendingInviteBanner'
 
 const tabsLeft = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,6 +22,7 @@ export default function Layout({ children }) {
   return (
     <div className="flex flex-col min-h-dvh max-w-lg mx-auto bg-gray-50">
       <OfflineBanner />
+      <PendingInviteBanner />
       <InstallBanner />
       <main className="flex-1 px-4 pt-3 pb-22 overflow-y-auto">
         {children}
