@@ -5,7 +5,7 @@ import { ArrowLeftRight, Plus, Wallet } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useWallets } from '../hooks/useWallets'
-import { useTransactions } from '../hooks/useTransactions'
+import { useTransactions, useSummary } from '../hooks/useTransactions'
 import { useDataScope } from '../hooks/useDataScope'
 import TransactionItem from '../components/TransactionItem'
 import BalanceCard from '../components/BalanceCard'
@@ -13,13 +13,40 @@ import TransactionForm from '../components/TransactionForm'
 
 export default function DashboardPageInner({ userId }) {
   const user = useSelector((s) => s.auth.user)
-  const { wallets, balances, loading: walletsLoading, totalBalance, totalSavings, totalNonSavings } = useWallets(userId)
+  const { wallets, loading: walletsLoading } = useWallets(userId)
   const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
   const { isMember } = useDataScope()
 
   const [showForm, setShowForm] = useState(false)
   const [editTx, setEditTx] = useState(null)
   const navigate = useNavigate()
+
+  // Compute balances locally (same pattern as WalletsPageInner — keeps
+  // all wallet logic in one place: useWallets returns raw wallets, the
+  // caller derives balances from transactions).
+  const balances = useMemo(() => {
+    const b = {}
+    wallets.forEach(w => { b[w.id] = w.initial_balance || 0 })
+    transactions.forEach(t => {
+      if (t.__type === 'transfer' && t._raw) {
+        if (t._raw.from_wallet_id) b[t._raw.from_wallet_id] = (b[t._raw.from_wallet_id] || 0) - t._raw.amount
+        if (t._raw.to_wallet_id) b[t._raw.to_wallet_id] = (b[t._raw.to_wallet_id] || 0) + t._raw.amount
+      } else if (t.wallet_id) {
+        if (t.type === 'pemasukan') b[t.wallet_id] = (b[t.wallet_id] || 0) + t.amount
+        else b[t.wallet_id] = (b[t.wallet_id] || 0) - t.amount
+      }
+    })
+    return b
+  }, [wallets, transactions])
+
+  const operasionalBalance = wallets.filter(w => !w.is_savings).reduce((s, w) => s + (balances[w.id] || 0), 0)
+  const savingsBalance = wallets.filter(w => w.is_savings).reduce((s, w) => s + (balances[w.id] || 0), 0)
+  const totalBalance = operasionalBalance + savingsBalance
+
+  // Current-month summary for the BalanceCard cashflow section.
+  const currentMonth = format(new Date(), 'yyyy-MM')
+  const monthLabel = format(new Date(), "MMMM yyyy", { locale: id })
+  const { data: monthSummary, isLoading: summaryLoading } = useSummary(userId, currentMonth)
 
   const recentTransactions = useMemo(() => {
     return transactions
@@ -38,15 +65,14 @@ export default function DashboardPageInner({ userId }) {
       </div>
 
       <BalanceCard
-        totalBalance={totalBalance}
-        totalSavings={totalSavings}
-        totalNonSavings={totalNonSavings}
-        walletCount={wallets.length}
+        saldo={totalBalance}
+        month={monthLabel}
+        loading={walletsLoading || summaryLoading}
+        operasionalBalance={operasionalBalance}
+        savingsBalance={savingsBalance}
+        pemasukan={monthSummary?.pemasukan}
+        pengeluaran={monthSummary?.pengeluaran}
       />
-
-      {/* (No 'Bikin Household?' CTA here — the header pill in personal
-          mode already shows a '+ Buat Household' button. Keeping it on
-          the dashboard too would be redundant noise.) */}
 
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => setShowForm(true)}
