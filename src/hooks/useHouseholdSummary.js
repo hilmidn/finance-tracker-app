@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase'
 /**
  * Lightweight household summary for the dashboard card.
  * Returns: household name, member count, total balance, this-month summary, recent tx count.
+ *
+ * Note: Per-user share of personal transactions does NOT contribute to
+ * the household ledger balances/summary — shared tx stay in personal
+ * scope and are visible in the Shared tab only.
  */
 export function useHouseholdSummary(householdId, members = []) {
   // Get all household wallets
@@ -48,15 +52,7 @@ export function useHouseholdSummary(householdId, members = []) {
         .eq('household_id', householdId)
         .in('household_wallet_id', walletIds)
 
-      // + shared personal tx
-      const { data: sh } = await supabase
-        .from('transactions')
-        .select('type, amount, household_wallet_id')
-        .eq('shared_to_household_id', householdId)
-        .in('household_wallet_id', walletIds)
-
-      const all = [...(hh || []), ...(sh || [])]
-      const net = all.reduce((acc, t) => {
+      const net = (hh || []).reduce((acc, t) => {
         return acc + (t.type === 'pemasukan' ? t.amount : -t.amount)
       }, 0)
       return initial + net
@@ -92,14 +88,7 @@ function useHouseholdSummaryDirect(householdId, month) {
         .gte('date', start)
         .lte('date', end)
 
-      const { data: sh } = await supabase
-        .from('transactions')
-        .select('type, amount')
-        .eq('shared_to_household_id', householdId)
-        .gte('date', start)
-        .lte('date', end)
-
-      const txs = [...(hh || []), ...(sh || [])]
+      const txs = hh || []
       const pemasukan = txs.filter(t => t.type === 'pemasukan').reduce((s, t) => s + t.amount, 0)
       const pengeluaran = txs.filter(t => t.type === 'pengeluaran').reduce((s, t) => s + t.amount, 0)
       return { pemasukan, pengeluaran, saldo: pemasukan - pengeluaran, count: txs.length }

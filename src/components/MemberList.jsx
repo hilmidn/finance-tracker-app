@@ -1,17 +1,32 @@
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
-import { Crown, MoreVertical, X, UserCog, UserMinus } from 'lucide-react'
+import { Crown, MoreVertical, X, UserCog, UserMinus, Eye } from 'lucide-react'
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
 import ConfirmModal from './ConfirmModal'
 
 /**
- * List of household members with action menu (kick, transfer ownership).
- * Admin only — non-admins see the list read-only.
+ * List of household members with action menu (kick, transfer ownership)
+ * and per-member share toggle.
+ *
+ * Share toggle rules:
+ * - Self row: enabled. Clicking flips `share_personal_to_household`
+ *   via the SECURITY DEFINER RPC. Optimistic update via the hook.
+ * - Other rows: disabled with "Hanya yang bisa mengelola" hint.
+ *   The status is still visible (ON/OFF badge) so members can see
+ *   who has shared.
  */
 export default function MemberList({ householdId }) {
   const user = useSelector((s) => s.auth.user)
   const currentUserId = user?.id
-  const { members, invites, kick, transferOwnership, cancelInvite } = useHouseholdMembers(householdId)
+  const {
+    members,
+    invites,
+    kick,
+    transferOwnership,
+    cancelInvite,
+    setSharePreference,
+    isSettingSharePreference,
+  } = useHouseholdMembers(householdId)
   const [menuOpenId, setMenuOpenId] = useState(null)
 
   // ── Modal state ──
@@ -76,6 +91,15 @@ export default function MemberList({ householdId }) {
     }
   }
 
+  const handleToggleShare = async (m) => {
+    if (m.user_id !== currentUserId) return
+    try {
+      await setSharePreference(!m.share_personal_to_household)
+    } catch (err) {
+      console.error('[MemberList] toggle share failed', err)
+    }
+  }
+
   if (members.length === 0 && invites.length === 0) {
     return (
       <div className="text-center py-10">
@@ -114,72 +138,105 @@ export default function MemberList({ householdId }) {
         const isMe = m.user_id === currentUserId
         const isTargetAdmin = m.role === 'admin'
         const initial = (m.user_id || '?').substring(0, 2).toUpperCase()
+        const shareOn = !!m.share_personal_to_household
 
         return (
-          <div key={m.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-100 px-4 py-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                isTargetAdmin ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
-              }`}>
-                {initial}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium text-gray-800 truncate">
-                    {isMe ? 'Kamu' : `User ${(m.user_id || '').substring(0, 6)}`}
+          <div key={m.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                  isTargetAdmin ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+                }`}>
+                  {initial}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {isMe ? 'Kamu' : `User ${(m.user_id || '').substring(0, 6)}`}
+                    </p>
+                    {isTargetAdmin && (
+                      <Crown size={12} className="text-amber-500" />
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    {isTargetAdmin ? 'Admin' : 'Member'}
+                    {m.accepted_at && ` · Joined ${new Date(m.accepted_at).toLocaleDateString('id-ID')}`}
                   </p>
-                  {isTargetAdmin && (
-                    <Crown size={12} className="text-amber-500" />
+                </div>
+              </div>
+
+              {isAdmin && (
+                <div className="relative">
+                  <button
+                    onClick={() => setMenuOpenId(menuOpenId === m.id ? null : m.id)}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <MoreVertical size={16} />
+                  </button>
+                  {menuOpenId === m.id && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
+                      <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 min-w-[160px]">
+                        {isTargetAdmin ? (
+                          <button
+                            onClick={() => { setMenuOpenId(null) }}
+                            disabled
+                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
+                          >
+                            <Crown size={14} /> Admin (kamu)
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => { setMenuOpenId(null); setTransferTarget(m) }}
+                              className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                              <UserCog size={14} /> Jadikan Admin
+                            </button>
+                            <button
+                              onClick={() => { setMenuOpenId(null); setKickTarget(m) }}
+                              className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              <UserMinus size={14} /> {isMe ? 'Leave' : 'Keluarkan'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
-                <p className="text-[10px] text-gray-400">
-                  {isTargetAdmin ? 'Admin' : 'Member'}
-                  {m.accepted_at && ` · Joined ${new Date(m.accepted_at).toLocaleDateString('id-ID')}`}
-                </p>
-              </div>
+              )}
             </div>
 
-            {isAdmin && (
-              <div className="relative">
-                <button
-                  onClick={() => setMenuOpenId(menuOpenId === m.id ? null : m.id)}
-                  className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <MoreVertical size={16} />
-                </button>
-                {menuOpenId === m.id && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
-                    <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 min-w-[160px]">
-                      {isTargetAdmin ? (
-                        <button
-                          onClick={() => { setMenuOpenId(null) }}
-                          disabled
-                          className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
-                        >
-                          <Crown size={14} /> Admin (kamu)
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => { setMenuOpenId(null); setTransferTarget(m) }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                          >
-                            <UserCog size={14} /> Jadikan Admin
-                          </button>
-                          <button
-                            onClick={() => { setMenuOpenId(null); setKickTarget(m) }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-                          >
-                            <UserMinus size={14} /> {isMe ? 'Leave' : 'Keluarkan'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
+            {/* Per-user share preference row */}
+            <div className="mt-2.5 ml-12 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Eye size={12} className={shareOn ? 'text-purple-500' : 'text-gray-300'} />
+                <span className="text-[11px] text-gray-500 truncate">
+                  {isMe ? 'Bagikan transaksi pribadi' : shareOn ? 'Berbagi transaksi pribadi' : 'Tidak berbagi'}
+                </span>
               </div>
-            )}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shareOn}
+                aria-label={isMe ? 'Toggle bagikan transaksi pribadi' : 'Status share'}
+                disabled={!isMe || isSettingSharePreference}
+                onClick={() => handleToggleShare(m)}
+                title={!isMe ? 'Hanya yang bisa mengatur preference masing-masing' : ''}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                  shareOn ? 'bg-purple-500' : 'bg-gray-200'
+                } ${!isMe ? 'opacity-50 cursor-not-allowed' : ''} ${
+                  isMe && !isSettingSharePreference ? 'cursor-pointer' : ''
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    shareOn ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         )
       })}

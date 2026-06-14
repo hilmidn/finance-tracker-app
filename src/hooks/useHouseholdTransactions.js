@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSelector } from 'react-redux'
 import { supabase } from '../lib/supabase'
@@ -39,6 +38,10 @@ async function updatePendingCount() {
 /**
  * Household transactions CRUD.
  * Household context: members share a single ledger per household.
+ *
+ * Per-user share of personal transactions lives in the Shared tab of
+ * the personal TransactionsPage and is fetched via useSharedPersonalTransactions.
+ * This hook is intentionally household-ledger-only.
  *
  * @param {string} householdId - household UUID
  * @param {string} userId - current user id (for offline fallback)
@@ -86,68 +89,6 @@ export function useHouseholdTransactions(householdId, userId) {
     },
     enabled: !!householdId,
   })
-
-  // Fetch shared personal transactions for this household
-  const sharedKey = ['householdSharedPersonal', householdId]
-  const sharedQuery = useQuery({
-    queryKey: sharedKey,
-    queryFn: async () => {
-      if (!householdId) return []
-      try {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select(`
-            *,
-            categories (name),
-            wallets (id, name, type, icon),
-            household_wallets:household_wallet_id (id, name, type, icon),
-            household_categories:household_category_id (id, name, type)
-          `)
-          .eq('shared_to_household_id', householdId)
-          .order('date', { ascending: false })
-          .order('created_at', { ascending: false })
-        if (error) throw error
-
-        // Mark in Dexie as shared
-        for (const tx of data || []) {
-          const existing = await db.transactions.where('serverId').equals(tx.id).first()
-          if (existing) {
-            await db.transactions.put({ ...existing, ...tx, shared_to_household_id: householdId, synced: true })
-          }
-        }
-        return data || []
-      } catch (err) {
-        if (!online || err.message?.includes('Failed to fetch')) {
-          const cached = await db.transactions.toArray()
-          return cached.filter(t => t.shared_to_household_id === householdId && !t._deleted)
-        }
-        return []
-      }
-    },
-    enabled: !!householdId,
-  })
-
-  // Combined list (household tx + shared personal), marked with __type
-  const combined = useMemo(() => {
-    const list = (allQuery.data || []).map(tx => ({
-      ...tx,
-      id: `hh_${tx.id}`,
-      __type: 'household',
-      _raw: tx,
-    }))
-    const shared = (sharedQuery.data || []).map(tx => ({
-      ...tx,
-      id: `sh_${tx.id}`,
-      __type: 'shared_personal',
-      _raw: tx,
-    }))
-    return [...list, ...shared].sort((a, b) => {
-      const ad = a._raw.date || ''
-      const bd = b._raw.date || ''
-      if (ad !== bd) return bd.localeCompare(ad)
-      return (b._raw.created_at || '').localeCompare(a._raw.created_at || '')
-    })
-  }, [allQuery.data, sharedQuery.data])
 
   // Add mutation
   const addMutation = useMutation({
@@ -233,30 +174,6 @@ export function useHouseholdTransactions(householdId, userId) {
     },
   })
 
-  // Unshare mutation: clear shared_to_household_id on a personal tx so
-  // it stops appearing in the household ledger. Used when the user wants
-  // to revoke a share from the household view.
-  const unshareMutation = useMutation({
-    mutationFn: async (personalTxId) => {
-      if (!personalTxId) throw new Error('Missing transaction id')
-      const { error } = await supabase
-        .from('transactions')
-        .update({ shared_to_household_id: null })
-        .eq('id', personalTxId)
-      if (error) throw error
-      return personalTxId
-    },
-    onSuccess: async (_data, personalTxId) => {
-      // Mirror to local cache so offline view reflects the change
-      const local = await db.transactions.where('serverId').equals(personalTxId).first()
-      if (local) await db.transactions.put({ ...local, shared_to_household_id: null, synced: true })
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: key })
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-    },
-  })
-
   // getSummary (month) — for household wallets page
   const getSummary = async (month) => {
     if (!householdId) return null
@@ -272,15 +189,6 @@ export function useHouseholdTransactions(householdId, userId) {
         .gte('date', r.start)
         .lte('date', r.end)
       if (!error && data) txs = data
-
-      // Include shared personal
-      const { data: shared, error: sErr } = await supabase
-        .from('transactions')
-        .select('type, amount, household_wallet_id')
-        .eq('shared_to_household_id', householdId)
-        .gte('date', r.start)
-        .lte('date', r.end)
-      if (!sErr && shared) txs = [...txs, ...shared]
     } catch (e) {
       void e
       const cached = await db.householdTransactions.toArray()
@@ -307,14 +215,7 @@ export function useHouseholdTransactions(householdId, userId) {
         .eq('type', 'pengeluaran')
         .gte('date', r.start)
         .lte('date', r.end)
-      const { data: sh } = await supabase
-        .from('transactions')
-        .select('type, amount, household_category_id, household_categories(name)')
-        .eq('shared_to_household_id', householdId)
-        .eq('type', 'pengeluaran')
-        .gte('date', r.start)
-        .lte('date', r.end)
-      txs = [...(hh || []), ...(sh || [])]
+      txs = hh || []
     } catch (e) {
       void e
       const cached = await db.householdTransactions.toArray()
@@ -327,15 +228,11 @@ export function useHouseholdTransactions(householdId, userId) {
   }
 
   return {
-    transactions: combined,
-    householdTx: allQuery.data || [],
-    sharedPersonalTx: sharedQuery.data || [],
-    loading: allQuery.isLoading || sharedQuery.isLoading,
+    transactions: allQuery.data || [],
+    loading: allQuery.isLoading,
     addTransaction: (tx) => addMutation.mutateAsync(tx),
     updateTransaction: (id, updates) => updateMutation.mutateAsync({ id, updates }),
     deleteTransaction: (id) => deleteMutation.mutateAsync(id),
-    unshareSharedTransaction: (personalTxId) => unshareMutation.mutateAsync(personalTxId),
-    isUnsharing: unshareMutation.isPending,
     getSummary,
     getCategoryBreakdown,
   }

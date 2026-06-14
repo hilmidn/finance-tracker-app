@@ -38,7 +38,7 @@ export default function HouseholdTransactionsPage({ scope }) {
   // useHouseholdCategories returns { categories: {pemasukan, pengeluaran}, raw: [...] }
   const { raw: rawCategories } = useHouseholdCategories(householdId)
   const { wallets } = useHouseholdWallets(householdId)
-  const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction, unshareSharedTransaction } =
+  const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction } =
     useHouseholdTransactions(householdId, userId)
 
   const categories = useMemo(() => {
@@ -129,7 +129,7 @@ export default function HouseholdTransactionsPage({ scope }) {
                 <ArrowLeftRight size={24} className="text-gray-400" />
               </div>
               <p className="text-gray-400 text-sm">Belum ada transaksi household</p>
-              <p className="text-gray-300 text-xs mt-1">Tap + untuk catat, atau share dari pribadi</p>
+              <p className="text-gray-300 text-xs mt-1">Tap + untuk catat transaksi household</p>
             </div>
           ) : (
             filteredTransactions.map(tx => (
@@ -138,18 +138,7 @@ export default function HouseholdTransactionsPage({ scope }) {
                 tx={tx}
                 currentUserId={userId}
                 onEdit={(t) => { setEditTx(t); setShowForm(true) }}
-                onDelete={async (id, isShared) => {
-                  if (isShared) {
-                    try {
-                      await unshareSharedTransaction(id)
-                    } catch (err) {
-                      console.error('[HouseholdTx] unshare failed', err)
-                      throw err
-                    }
-                  } else {
-                    await deleteTransaction(id)
-                  }
-                }}
+                onDelete={(id) => deleteTransaction(id)}
               />
             ))
           )}

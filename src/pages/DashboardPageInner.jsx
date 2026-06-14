@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { useWallets } from "../hooks/useWallets";
 import { useTransactions, useSummary } from "../hooks/useTransactions";
-import { useDataScope } from "../hooks/useDataScope";
 import TransactionItem from "../components/TransactionItem";
 import BalanceCard from "../components/BalanceCard";
 import TransactionForm from "../components/TransactionForm";
@@ -23,7 +22,6 @@ export default function DashboardPageInner({ userId }) {
     deleteTransaction,
     deleteTransfer,
   } = useTransactions(userId);
-  const { isMember } = useDataScope();
 
   const { categories } = useCategories(userId);
 
@@ -194,7 +192,6 @@ export default function DashboardPageInner({ userId }) {
                 <TransactionItem
                   key={key}
                   tx={tx}
-                  isHouseholdMember={isMember}
                   onDelete={(id, isTransfer) => {
                     isTransfer ? deleteTransfer(id) : deleteTransaction(id);
                   }}
@@ -207,22 +204,6 @@ export default function DashboardPageInner({ userId }) {
                       });
                       setShowForm(true);
                     }
-                  }}
-                  onShare={(t) => {
-                    setEditTx({
-                      ...t,
-                      category_id: t.category_id,
-                      wallet_id: t.wallet_id,
-                      _forceShare: true,
-                    });
-                    setShowForm(true);
-                  }}
-                  onUnshare={async (t) => {
-                    await updateTransaction(t.id, {
-                      shared_to_household_id: null,
-                      household_category_id: null,
-                      household_wallet_id: null,
-                    });
                   }}
                 />
               );

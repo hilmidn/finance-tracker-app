@@ -241,9 +241,6 @@ export function useTransactions(userId) {
         clientId, serverId: null, userId, type: tx.type, category_id: tx.category_id,
         wallet_id: tx.wallet_id, amount: tx.amount, note: tx.note || '',
         date: tx.date, created_at: new Date().toISOString(),
-        shared_to_household_id: tx.shared_to_household_id || null,
-        household_category_id: tx.household_category_id || null,
-        household_wallet_id: tx.household_wallet_id || null,
         _categoryName: '', _walletName: '', _walletType: '', _walletIcon: '',
         synced: false, _deleted: false,
       }

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSelector } from 'react-redux'
 import { supabase } from '../lib/supabase'
 import db from '../db/local'
 
@@ -15,6 +16,7 @@ import db from '../db/local'
  */
 export function useHouseholdMembers(householdId) {
   const queryClient = useQueryClient()
+  const currentUserId = useSelector((s) => s.auth.user?.id)
   const key = ['householdMembers', householdId]
   const invitesKey = ['householdInvites', householdId]
 
@@ -199,6 +201,37 @@ export function useHouseholdMembers(householdId) {
     },
   })
 
+  // Toggle self's share preference via RPC. The RPC validates that
+  // user_id = auth.uid() inside SQL, so even an admin cannot flip
+  // another member's preference.
+  const setSharePreferenceMutation = useMutation({
+    mutationFn: async (value) => {
+      const { error } = await supabase
+        .rpc('set_my_share_personal_to_household', { p_value: !!value })
+      if (error) throw error
+      return value
+    },
+    onMutate: async (value) => {
+      // Optimistic update of the cached members list so the toggle
+      // reflects immediately, even before the server confirms.
+      await queryClient.cancelQueries({ queryKey: key })
+      const prev = queryClient.getQueryData(key)
+      queryClient.setQueryData(key, (old) => {
+        if (!old || !currentUserId) return old
+        return old.map(m => m.user_id === currentUserId
+          ? { ...m, share_personal_to_household: !!value }
+          : m)
+      })
+      return { prev }
+    },
+    onError: (_err, _value, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(key, ctx.prev)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: key })
+    },
+  })
+
   return {
     members: listQuery.data || [],
     invites: invitesQuery.data || [],
@@ -210,6 +243,8 @@ export function useHouseholdMembers(householdId) {
     kick: kickMutation.mutateAsync,
     leave: leaveMutation.mutateAsync,
     transferOwnership: transferMutation.mutateAsync,
+    setSharePreference: (value) => setSharePreferenceMutation.mutateAsync(value),
+    isSettingSharePreference: setSharePreferenceMutation.isPending,
   }
 }
 

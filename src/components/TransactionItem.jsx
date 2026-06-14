@@ -1,25 +1,23 @@
-import { Trash2, Pencil, ArrowLeftRight, Share2, Share, CheckCircle2 } from 'lucide-react'
+import { Trash2, Pencil, ArrowLeftRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useState } from 'react'
 import ConfirmModal from './ConfirmModal'
 
 /**
- * Display a single personal transaction.
- * Supports US-8: shows share status + provides share/unshare toggle.
+ * Display a single personal transaction (income/expense/transfer).
+ * Read-only mode is supported via the `readOnly` prop: hides edit +
+ * delete buttons (used by the Shared tab to view other members' tx).
  *
  * Props:
  * - tx
- * - onDelete
- * - onEdit
- * - onShare(tx) — called when user wants to share
- * - onUnshare(tx) — called when user wants to unshare
- * - isHouseholdMember: boolean — if true, show share buttons
+ * - onDelete(id, isTransfer)
+ * - onEdit(tx)
+ * - readOnly: boolean — when true, no action buttons are shown
  */
-export default function TransactionItem({ tx, onDelete, onEdit, onShare, onUnshare, isHouseholdMember }) {
+export default function TransactionItem({ tx, onDelete, onEdit, readOnly }) {
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [confirmUnshare, setConfirmUnshare] = useState(false)
   const [error, setError] = useState(null)
   const isTransfer = tx.__type === 'transfer'
 
@@ -33,17 +31,6 @@ export default function TransactionItem({ tx, onDelete, onEdit, onShare, onUnsha
     } catch (err) {
       setError(err.message || 'Gagal menghapus')
       throw err  // keep modal open
-    }
-  }
-
-  const handleUnshare = async () => {
-    setError(null)
-    try {
-      await onUnshare?.(tx)
-      setConfirmUnshare(false)
-    } catch (err) {
-      setError(err.message || 'Gagal membatalkan share')
-      throw err
     }
   }
 
@@ -81,28 +68,32 @@ export default function TransactionItem({ tx, onDelete, onEdit, onShare, onUnsha
             <span className="font-bold text-sm text-blue-600">
               Rp {tx.amount.toLocaleString('id-ID')}
             </span>
-            <button
-              onClick={() => { setError(null); setConfirmDelete(true) }}
-              disabled={busy}
-              aria-label="Hapus transfer"
-              className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:opacity-50"
-            >
-              <Trash2 size={14} />
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => { setError(null); setConfirmDelete(true) }}
+                disabled={busy}
+                aria-label="Hapus transfer"
+                className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         </div>
 
-        <ConfirmModal
-          isOpen={confirmDelete}
-          onClose={() => { if (!busy) { setConfirmDelete(false); setError(null) } }}
-          onConfirm={async () => { setBusy(true); try { await handleDelete() } finally { setBusy(false) } }}
-          title={error ? 'Gagal menghapus transfer' : 'Hapus transfer?'}
-          message={error || `Transfer Rp ${tx.amount.toLocaleString('id-ID')} dari ${from?.name || '?'} akan dihapus. Saldo dompet akan di-restore.`}
-          confirmText={error ? 'Tutup' : 'Hapus'}
-          cancelText="Batal"
-          variant="danger"
-          loading={busy}
-        />
+        {!readOnly && (
+          <ConfirmModal
+            isOpen={confirmDelete}
+            onClose={() => { if (!busy) { setConfirmDelete(false); setError(null) } }}
+            onConfirm={async () => { setBusy(true); try { await handleDelete() } finally { setBusy(false) } }}
+            title={error ? 'Gagal menghapus transfer' : 'Hapus transfer?'}
+            message={error || `Transfer Rp ${tx.amount.toLocaleString('id-ID')} dari ${from?.name || '?'} akan dihapus. Saldo dompet akan di-restore.`}
+            confirmText={error ? 'Tutup' : 'Hapus'}
+            cancelText="Batal"
+            variant="danger"
+            loading={busy}
+          />
+        )}
       </>
     )
   }
@@ -111,7 +102,6 @@ export default function TransactionItem({ tx, onDelete, onEdit, onShare, onUnsha
   const catName = tx.categories?.name || 'Tanpa Kategori'
   const walletName = tx.wallets?.name
   const walletIcon = tx.wallets?.icon || '💳'
-  const isShared = Boolean(tx.shared_to_household_id)
 
   return (
     <>
@@ -139,11 +129,6 @@ export default function TransactionItem({ tx, onDelete, onEdit, onShare, onUnsha
             }`}>
               {isIncome ? 'Masuk' : 'Keluar'}
             </span>
-            {isShared && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-purple-50 text-purple-600 flex items-center gap-0.5">
-                <CheckCircle2 size={9} /> Shared
-              </span>
-            )}
           </div>
           {tx.note && <p className="text-xs text-gray-500 truncate mt-0.5">{tx.note}</p>}
           <p className="text-[11px] text-gray-400 mt-0.5">
@@ -157,76 +142,41 @@ export default function TransactionItem({ tx, onDelete, onEdit, onShare, onUnsha
           <span className={`font-bold text-sm ${isIncome ? 'text-green-600' : 'text-red-500'}`}>
             {isIncome ? '+' : '-'}Rp {tx.amount.toLocaleString('id-ID')}
           </span>
-          <div className="flex flex-col gap-0.5 ml-1">
-            <button
-              onClick={() => onEdit?.(tx)}
-              aria-label="Edit transaksi"
-              className="p-1 text-gray-300 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"
-            >
-              <Pencil size={12} />
-            </button>
-            {isHouseholdMember && (
-              isShared ? (
-                <button
-                  onClick={() => { setError(null); setConfirmUnshare(true) }}
-                  disabled={busy}
-                  aria-label="Batalkan share"
-                  className="p-1 text-purple-400 hover:text-purple-600 transition-colors rounded-lg hover:bg-purple-50 disabled:opacity-50"
-                  title="Batalkan share ke household"
-                >
-                  <Share2 size={12} />
-                </button>
-              ) : (
-                <button
-                  onClick={async () => {
-                    if (busy) return
-                    setBusy(true)
-                    try { await onShare?.(tx) } finally { setBusy(false) }
-                  }}
-                  disabled={busy}
-                  aria-label="Bagikan ke household"
-                  className="p-1 text-gray-300 hover:text-purple-500 transition-colors rounded-lg hover:bg-purple-50 disabled:opacity-50"
-                  title="Bagikan ke household"
-                >
-                  <Share size={12} />
-                </button>
-              )
-            )}
-            <button
-              onClick={() => { setError(null); setConfirmDelete(true) }}
-              disabled={busy}
-              aria-label="Hapus transaksi"
-              className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:opacity-50"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
+          {!readOnly && (
+            <div className="flex flex-col gap-0.5 ml-1">
+              <button
+                onClick={() => onEdit?.(tx)}
+                aria-label="Edit transaksi"
+                className="p-1 text-gray-300 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                onClick={() => { setError(null); setConfirmDelete(true) }}
+                disabled={busy}
+                aria-label="Hapus transaksi"
+                className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 disabled:opacity-50"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      <ConfirmModal
-        isOpen={confirmDelete}
-        onClose={() => { if (!busy) { setConfirmDelete(false); setError(null) } }}
-        onConfirm={async () => { setBusy(true); try { await handleDelete() } finally { setBusy(false) } }}
-        title={error ? 'Gagal menghapus' : 'Hapus transaksi?'}
-        message={error || `Transaksi ${catName} sebesar Rp ${tx.amount.toLocaleString('id-ID')} akan dihapus. Saldo dompet akan di-restore.${isShared ? ' Transaksi ini juga akan hilang dari household.' : ''}`}
-        confirmText={error ? 'Tutup' : 'Hapus'}
-        cancelText="Batal"
-        variant="danger"
-        loading={busy}
-      />
-
-      <ConfirmModal
-        isOpen={confirmUnshare}
-        onClose={() => { if (!busy) { setConfirmUnshare(false); setError(null) } }}
-        onConfirm={async () => { setBusy(true); try { await handleUnshare() } finally { setBusy(false) } }}
-        title={error ? 'Gagal' : 'Batalkan share ke household?'}
-        message={error || `Transaksi ini tidak akan muncul lagi di household ledger, tapi tetap ada di transaksi personal kamu.`}
-        confirmText={error ? 'Tutup' : 'Batalkan Share'}
-        cancelText="Kembali"
-        variant="default"
-        loading={busy}
-      />
+      {!readOnly && (
+        <ConfirmModal
+          isOpen={confirmDelete}
+          onClose={() => { if (!busy) { setConfirmDelete(false); setError(null) } }}
+          onConfirm={async () => { setBusy(true); try { await handleDelete() } finally { setBusy(false) } }}
+          title={error ? 'Gagal menghapus' : 'Hapus transaksi?'}
+          message={error || `Transaksi ${catName} sebesar Rp ${tx.amount.toLocaleString('id-ID')} akan dihapus. Saldo dompet akan di-restore.`}
+          confirmText={error ? 'Tutup' : 'Hapus'}
+          cancelText="Batal"
+          variant="danger"
+          loading={busy}
+        />
+      )}
     </>
   )
 }
