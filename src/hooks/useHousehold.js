@@ -52,22 +52,31 @@ export function useHousehold(userIdProp) {
   // Create household
   const createMutation = useMutation({
     mutationFn: async ({ name }) => {
-      if (!userId) throw new Error('Not logged in')
+      // Get authoritative user id from Supabase session, not Redux.
+      // This guarantees auth.uid() (used by RLS) matches created_by.
+      const { data: { user: sbUser }, error: sbErr } = await supabase.auth.getUser()
+      if (sbErr || !sbUser) {
+        throw new Error('Session expired — silakan login ulang')
+      }
+      const sbUserId = sbUser.id
 
       // 1. Insert household
       const { data: household, error: hErr } = await supabase
         .from('households')
-        .insert({ name, created_by: userId })
+        .insert({ name, created_by: sbUserId })
         .select()
         .single()
-      if (hErr) throw hErr
+      if (hErr) {
+        console.error('[createHousehold] insert failed', { name, sbUserId, error: hErr })
+        throw hErr
+      }
 
       // 2. Insert self as admin/accepted
       const { error: mErr } = await supabase
         .from('household_members')
         .insert({
           household_id: household.id,
-          user_id: userId,
+          user_id: sbUserId,
           role: 'admin',
           status: 'accepted',
           accepted_at: new Date().toISOString(),
@@ -78,7 +87,10 @@ export function useHousehold(userIdProp) {
     },
     onSuccess: async (household) => {
       dispatch(setCurrentHouseholdId(household.id))
-      queryClient.invalidateQueries({ queryKey: ['householdMembership', userId] })
+      const { data: { user: sbUser } } = await supabase.auth.getUser()
+      if (sbUser) {
+        queryClient.invalidateQueries({ queryKey: ['householdMembership', sbUser.id] })
+      }
     },
   })
 
