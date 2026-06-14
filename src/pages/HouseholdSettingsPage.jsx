@@ -6,6 +6,7 @@ import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
 import MemberList from '../components/MemberList'
 import HouseholdCategoriesTab from '../components/HouseholdCategoriesTab'
 import InviteMemberModal from '../components/InviteMemberModal'
+import ConfirmModal from '../components/ConfirmModal'
 
 export default function HouseholdSettingsPage() {
   const user = useSelector((s) => s.auth.user)
@@ -19,6 +20,10 @@ export default function HouseholdSettingsPage() {
   const [editing, setEditing] = useState(false)
   const [newName, setNewName] = useState('')
   const [renaming, setRenaming] = useState(false)
+  const [renameError, setRenameError] = useState(null)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState(null)
 
   // ── State: not in any household ──
   if (!loading && !household) {
@@ -60,11 +65,12 @@ export default function HouseholdSettingsPage() {
   const handleRename = async () => {
     if (!newName.trim()) return
     setRenaming(true)
+    setRenameError(null)
     try {
       await renameHousehold(householdId, newName.trim())
       setEditing(false)
     } catch (err) {
-      alert(err.message)
+      setRenameError(err.message)
     } finally {
       setRenaming(false)
     }
@@ -73,14 +79,24 @@ export default function HouseholdSettingsPage() {
   const handleLeave = async () => {
     if (!myMembership) return
     if (isAdmin && members.filter(m => m.status === 'accepted').length > 1) {
-      alert('Admin harus transfer ownership dulu sebelum leave, atau hapus household')
+      setLeaveError('Admin harus transfer ownership dulu sebelum leave, atau hapus household')
+      setLeaveOpen(true)
       return
     }
-    if (!confirm('Yakin keluar dari household ini?')) return
+    setLeaveError(null)
+    setLeaveOpen(true)
+  }
+
+  const handleConfirmLeave = async () => {
+    setLeaving(true)
     try {
       await leave(myMembership.id)
+      setLeaveOpen(false)
     } catch (err) {
-      alert(err.message)
+      setLeaveError(err.message)
+      throw err  // keep modal open
+    } finally {
+      setLeaving(false)
     }
   }
 
@@ -96,22 +112,27 @@ export default function HouseholdSettingsPage() {
           </div>
           <div className="flex-1 min-w-0">
             {editing ? (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  autoFocus
-                  className="flex-1 rounded-lg px-3 py-1.5 text-sm bg-white/95 text-gray-900 focus:outline-none focus:ring-2 focus:ring-white"
-                />
-                <button onClick={handleRename} disabled={renaming}
-                  className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                  <Check size={16} />
-                </button>
-                <button onClick={() => setEditing(false)}
-                  className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                  <XIcon size={16} />
-                </button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    autoFocus
+                    className="flex-1 rounded-lg px-3 py-1.5 text-sm bg-white/95 text-gray-900 focus:outline-none focus:ring-2 focus:ring-white"
+                  />
+                  <button onClick={handleRename} disabled={renaming}
+                    className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
+                    <Check size={16} />
+                  </button>
+                  <button onClick={() => { setEditing(false); setRenameError(null) }}
+                    className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
+                    <XIcon size={16} />
+                  </button>
+                </div>
+                {renameError && (
+                  <p className="text-xs text-red-100 bg-red-500/30 rounded-lg px-2 py-1">{renameError}</p>
+                )}
               </div>
             ) : (
               <>
@@ -177,6 +198,18 @@ export default function HouseholdSettingsPage() {
           onClose={() => setShowInvite(false)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={leaveOpen}
+        onClose={() => { if (!leaving) { setLeaveOpen(false); setLeaveError(null) } }}
+        onConfirm={handleConfirmLeave}
+        title={leaveError ? 'Tidak bisa keluar' : 'Keluar dari household?'}
+        message={leaveError || 'Kamu tidak akan lagi melihat transaksi household ini di akunmu. Transaksi yang sudah ada tetap tersimpan.'}
+        confirmText="Keluar"
+        cancelText={leaveError ? 'Tutup' : 'Batal'}
+        variant="danger"
+        loading={leaving}
+      />
     </div>
   )
 }

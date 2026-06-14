@@ -1,21 +1,40 @@
 import { useState } from 'react'
 import { Plus, Trash2, Tag } from 'lucide-react'
 import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
+import ConfirmModal from './ConfirmModal'
 
 export default function HouseholdCategoriesTab({ householdId }) {
   const [activeTab, setActiveTab] = useState('pengeluaran')
   const [showAdd, setShowAdd] = useState(false)
   const [newCat, setNewCat] = useState('')
+  const [addError, setAddError] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)  // category object or null
+  const [deleting, setDeleting] = useState(false)
   const { categories, loading, addCategory, deleteCategory } = useHouseholdCategories(householdId)
   const catList = categories[activeTab] || []
 
   const handleAdd = async () => {
     if (!newCat.trim()) return
+    setAddError(null)
     try {
       await addCategory(newCat.trim(), activeTab)
       setNewCat(''); setShowAdd(false)
     } catch (err) {
-      alert(err.message || 'Gagal menambah kategori')
+      setAddError(err.message || 'Gagal menambah kategori')
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return
+    setDeleting(true)
+    try {
+      await deleteCategory(pendingDelete.id)
+      setPendingDelete(null)
+    } catch (err) {
+      console.error('[HouseholdCategoriesTab] delete failed', err)
+      throw err  // keep modal open so user can see error
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -52,10 +71,9 @@ export default function HouseholdCategoriesTab({ householdId }) {
                 <span className="text-sm font-medium text-gray-800">{cat.name}</span>
               </div>
               <button
-                onClick={() => {
-                  if (confirm(`Hapus kategori "${cat.name}"?`)) deleteCategory(cat.id)
-                }}
+                onClick={() => setPendingDelete(cat)}
                 className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                aria-label={`Hapus kategori ${cat.name}`}
               >
                 <Trash2 size={15} />
               </button>
@@ -65,14 +83,19 @@ export default function HouseholdCategoriesTab({ householdId }) {
       </div>
 
       {showAdd ? (
-        <div className="flex gap-2">
-          <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)}
-            placeholder="Nama kategori baru" autoFocus
-            className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white" />
-          <button onClick={handleAdd}
-            className="bg-indigo-600 text-white px-4 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors">Simpan</button>
-          <button onClick={() => { setShowAdd(false); setNewCat('') }}
-            className="px-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">Batal</button>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)}
+              placeholder="Nama kategori baru" autoFocus
+              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white" />
+            <button onClick={handleAdd}
+              className="bg-indigo-600 text-white px-4 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors">Simpan</button>
+            <button onClick={() => { setShowAdd(false); setNewCat(''); setAddError(null) }}
+              className="px-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">Batal</button>
+          </div>
+          {addError && (
+            <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{addError}</p>
+          )}
         </div>
       ) : (
         <button onClick={() => setShowAdd(true)}
@@ -80,6 +103,17 @@ export default function HouseholdCategoriesTab({ householdId }) {
           <Plus size={18} /> Tambah Kategori
         </button>
       )}
+
+      <ConfirmModal
+        isOpen={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title={`Hapus kategori "${pendingDelete?.name}"?`}
+        message="Kategori yang dipakai transaksi tidak bisa dihapus. Hapus atau pindahkan transaksi terkait dulu."
+        confirmText="Hapus"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   )
 }
