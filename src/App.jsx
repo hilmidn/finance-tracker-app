@@ -8,8 +8,6 @@ import ScanPage from './pages/ScanPage'
 import WalletsPage from './pages/WalletsPage'
 import SettingsPage from './pages/SettingsPage'
 import HouseholdSettingsPage from './pages/HouseholdSettingsPage'
-import HouseholdWalletsPage from './pages/HouseholdWalletsPage'
-import HouseholdTransactionsPage from './pages/HouseholdTransactionsPage'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
@@ -30,7 +28,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Layout>
+      <Layout onSignOut={signOut}>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
@@ -38,8 +36,6 @@ function App() {
           <Route path="/wallets" element={<WalletsPage />} />
           <Route path="/settings" element={<SettingsPage onSignOut={signOut} />} />
           <Route path="/household" element={<HouseholdSettingsPage />} />
-          <Route path="/household/wallets" element={<HouseholdWalletsPage />} />
-          <Route path="/household/transactions" element={<HouseholdTransactionsPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

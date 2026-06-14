@@ -1,9 +1,9 @@
-import { useSelector } from 'react-redux'
 import { NavLink, useLocation } from 'react-router-dom'
 import { LayoutDashboard, ArrowLeftRight, Wallet, Settings } from 'lucide-react'
 import OfflineBanner from './OfflineBanner'
 import InstallBanner from './InstallBanner'
 import PendingInviteBanner from './PendingInviteBanner'
+import Header from './Header'
 
 const tabsLeft = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -15,12 +15,13 @@ const tabsRight = [
   { to: '/settings', icon: Settings, label: 'Pengaturan' },
 ]
 
-export default function Layout({ children }) {
+export default function Layout({ children, onSignOut }) {
   const location = useLocation()
   const isScan = location.pathname === '/scan'
 
   return (
     <div className="flex flex-col min-h-dvh max-w-lg mx-auto bg-gray-50">
+      <Header onSignOut={onSignOut} />
       <OfflineBanner />
       <PendingInviteBanner />
       <InstallBanner />
