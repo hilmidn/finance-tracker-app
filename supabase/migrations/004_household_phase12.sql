@@ -451,6 +451,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 DECLARE
   v_user_id UUID;
   v_user_email TEXT;

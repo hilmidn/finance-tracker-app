@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS household_transactions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Idempotent: add columns that may be missing if this migration was
+-- updated after the table was already created.
+ALTER TABLE household_transactions
+  ADD COLUMN IF NOT EXISTS source_transfer_id BIGINT REFERENCES transfers(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_household_tx_household ON household_transactions(household_id);
 CREATE INDEX IF NOT EXISTS idx_household_tx_wallet ON household_transactions(household_wallet_id);
 CREATE INDEX IF NOT EXISTS idx_household_tx_category ON household_transactions(household_category_id);
@@ -31,21 +38,25 @@ CREATE INDEX IF NOT EXISTS idx_household_tx_source_transfer ON household_transac
 ALTER TABLE household_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Read: household members bisa lihat semua transaksi household mereka
+DROP POLICY IF EXISTS "Members can view household transactions" ON household_transactions;
 CREATE POLICY "Members can view household transactions"
   ON household_transactions FOR SELECT
   USING (public.is_household_member(household_id));
 
 -- Insert: members can create tx in their household
+DROP POLICY IF EXISTS "Members can insert household transactions" ON household_transactions;
 CREATE POLICY "Members can insert household transactions"
   ON household_transactions FOR INSERT
   WITH CHECK (public.is_household_member(household_id));
 
 -- Update: members can update (untuk edit/delete)
+DROP POLICY IF EXISTS "Members can update household transactions" ON household_transactions;
 CREATE POLICY "Members can update household transactions"
   ON household_transactions FOR UPDATE
   USING (public.is_household_member(household_id));
 
 -- Delete: members can delete
+DROP POLICY IF EXISTS "Members can delete household transactions" ON household_transactions;
 CREATE POLICY "Members can delete household transactions"
   ON household_transactions FOR DELETE
   USING (public.is_household_member(household_id));
@@ -91,6 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_shared_household
 
 -- Update RLS: tambah policy supaya household members bisa lihat
 -- shared personal transactions di household mereka
+DROP POLICY IF EXISTS "Household members can view shared transactions" ON transactions;
 CREATE POLICY "Household members can view shared transactions"
   ON transactions FOR SELECT
   USING (
