@@ -1,15 +1,17 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSelector } from 'react-redux'
-import { Plus, ArrowLeftRight, BarChart3, List, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, ArrowLeftRight, BarChart3, List, TrendingUp, TrendingDown, Eye } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import HouseholdTransactionItem from '../components/HouseholdTransactionItem'
 import HouseholdTransactionForm from '../components/HouseholdTransactionForm'
 import MonthPicker from '../components/MonthPicker'
+import TransactionItem from '../components/TransactionItem'
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
 import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
 import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
 import { useHouseholdTransactions } from '../hooks/useHouseholdTransactions'
+import { useSharedPersonalTransactions } from '../hooks/useSharedPersonalTransactions'
 
 function monthRange(month) {
   if (!month) return null
@@ -40,6 +42,24 @@ export default function HouseholdTransactionsPage({ scope }) {
   const { wallets } = useHouseholdWallets(householdId)
   const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction } =
     useHouseholdTransactions(householdId, userId)
+
+  // ── Shared tab state ──
+  // Only members with share_personal_to_household = TRUE are eligible
+  // to have their personal tx peeked at.
+  const sharedMembers = useMemo(
+    () => (members || []).filter(m => m.share_personal_to_household && m.user_id !== userId),
+    [members, userId]
+  )
+  const [sharedMemberId, setSharedMemberId] = useState(null)
+  useEffect(() => {
+    if (!sharedMemberId && sharedMembers.length > 0) {
+      setSharedMemberId(sharedMembers[0].user_id)
+    }
+    if (sharedMemberId && !sharedMembers.find(m => m.user_id === sharedMemberId)) {
+      setSharedMemberId(sharedMembers[0]?.user_id || null)
+    }
+  }, [sharedMembers, sharedMemberId])
+  const { data: sharedTx = [], isLoading: sharedLoading } = useSharedPersonalTransactions(householdId, sharedMemberId)
 
   const categories = useMemo(() => {
     const cats = rawCategories || []
@@ -103,6 +123,10 @@ export default function HouseholdTransactionsPage({ scope }) {
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all ${tab === 'riwayat' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
           <List size={16} /> Riwayat
         </button>
+        <button onClick={() => setTab('shared')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all ${tab === 'shared' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500'}`}>
+          <Eye size={16} /> Shared
+        </button>
         <button onClick={() => setTab('analisis')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all ${tab === 'analisis' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
           <BarChart3 size={16} /> Analisis
@@ -141,6 +165,72 @@ export default function HouseholdTransactionsPage({ scope }) {
                 onDelete={(id) => deleteTransaction(id)}
               />
             ))
+          )}
+        </div>
+      )}
+
+      {tab === 'shared' && (
+        <div className="space-y-2">
+          {sharedMembers.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-100 rounded-2xl mb-3">
+                <Eye size={24} className="text-gray-400" />
+              </div>
+              <p className="text-gray-400 text-sm">Belum ada member yang berbagi</p>
+              <p className="text-gray-300 text-xs mt-1">
+                Aktifkan toggle "Bagikan transaksi pribadi" di Household Settings untuk mulai berbagi
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Member picker */}
+              <div className="flex flex-wrap gap-1.5 px-1">
+                {sharedMembers.map(m => {
+                  const selected = m.user_id === sharedMemberId
+                  const label = `User ${(m.user_id || '').substring(0, 6)}`
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setSharedMemberId(m.user_id)}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                        selected
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center justify-between px-1 pt-1">
+                <span className="text-xs text-gray-400 font-medium">
+                  {sharedTx.length} transaksi · {monthLabel}
+                </span>
+                <span className="text-[10px] text-purple-600 font-medium">Read-only</span>
+              </div>
+
+              {sharedLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-xl animate-pulse" />)}
+                </div>
+              ) : (() => {
+                const r = monthRange(month)
+                const list = r ? sharedTx.filter(t => t.date >= r.start && t.date <= r.end) : sharedTx
+                if (list.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p className="text-gray-400 text-sm">Belum ada transaksi di bulan ini</p>
+                      <p className="text-gray-300 text-xs mt-1">{monthLabel}</p>
+                    </div>
+                  )
+                }
+                return list.map(tx => (
+                  <TransactionItem key={tx.id} tx={tx} readOnly />
+                ))
+              })()}
+            </>
           )}
         </div>
       )}
