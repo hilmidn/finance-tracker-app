@@ -9,10 +9,15 @@ import { setCurrentHouseholdId } from '../store/authSlice'
  * Get the current user's household membership record.
  * Returns the household_members row that the user is part of (any status).
  * If no membership exists, returns null.
+ *
+ * userId is optional — defaults to the logged-in user from Redux. Pass
+ * explicitly only when querying on behalf of someone else.
  */
-export function useHousehold(userId) {
+export function useHousehold(userIdProp) {
   const dispatch = useDispatch()
   const queryClient = useQueryClient()
+  const authUserId = useSelector((s) => s.auth.user?.id)
+  const userId = userIdProp || authUserId
 
   // Get my membership(s) — could have one pending and one accepted, but per design
   // user can only be in 1 household (or 1 pending invite at a time)
