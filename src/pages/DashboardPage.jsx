@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
-import { Plus, ArrowLeftRight, PiggyBank, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
+import { Plus, ArrowLeftRight, PiggyBank, Wallet } from 'lucide-react'
 import BalanceCard from '../components/BalanceCard'
 import HouseholdSummaryCard from '../components/HouseholdSummaryCard'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
-import { useTransactions, useSummary, useMonthlySavings } from '../hooks/useTransactions'
+import { useTransactions, useSummary } from '../hooks/useTransactions'
 import { useWallets } from '../hooks/useWallets'
 import { useCategories } from '../hooks/useCategories'
 import { useHousehold } from '../hooks/useHousehold'
@@ -27,10 +27,9 @@ export default function DashboardPage() {
   const [editTx, setEditTx] = useState(null)
 
   const { transactions, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
-  const { wallets, loading: walletsLoading } = useWallets(userId)
+  const { wallets } = useWallets(userId)
   const { categories } = useCategories(userId)
   const { data: summary } = useSummary(userId, month)
-  const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
 
   // Household context
   const { household, isMember } = useHousehold(userId)
@@ -82,11 +81,13 @@ export default function DashboardPage() {
       </div>
 
       <BalanceCard
-        pemasukan={summary?.pemasukan}
-        pengeluaran={summary?.pengeluaran}
         saldo={summary?.saldo}
         month={monthLabel}
         loading={!summary}
+        operasionalBalance={operasionalBalance}
+        savingsBalance={savingsBalance}
+        pemasukan={summary?.pemasukan}
+        pengeluaran={summary?.pengeluaran}
       />
 
       {/* Household summary card (only if user is a member) */}
@@ -98,50 +99,6 @@ export default function DashboardPage() {
           monthSummary={householdSummary.monthSummary}
           loading={householdSummary.loading}
         />
-      )}
-
-      {!walletsLoading && wallets.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <Wallet size={13} /> Saldo Operasional
-            </div>
-            <p className="text-sm font-bold text-gray-900">Rp {operasionalBalance.toLocaleString('id-ID')}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-amber-100 p-3 shadow-sm">
-            <div className="flex items-center gap-1.5 text-amber-600 text-xs mb-1">
-              <PiggyBank size={13} /> Tabungan
-            </div>
-            <p className="text-sm font-bold text-amber-700">Rp {savingsBalance.toLocaleString('id-ID')}</p>
-          </div>
-        </div>
-      )}
-
-      {summary && (
-        <div className="flex gap-2">
-          <div className="flex-1 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
-            <div className="flex items-center gap-1 text-green-700 text-xs mb-0.5">
-              <TrendingUp size={13} /> Pemasukan
-            </div>
-            <p className="text-sm font-bold text-green-700">Rp {summary.pemasukan.toLocaleString('id-ID')}</p>
-          </div>
-          <div className="flex-1 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
-            <div className="flex items-center gap-1 text-red-500 text-xs mb-0.5">
-              <TrendingDown size={13} /> Pengeluaran
-            </div>
-            <p className="text-sm font-bold text-red-500">Rp {summary.pengeluaran.toLocaleString('id-ID')}</p>
-          </div>
-          <div className="flex-1 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-            <div className="flex items-center gap-1 text-amber-600 text-xs mb-0.5">
-              <PiggyBank size={13} /> Menabung
-            </div>
-            {savingsLoading ? (
-              <div className="h-4 w-16 bg-amber-200 rounded animate-pulse" />
-            ) : (
-              <p className="text-sm font-bold text-amber-700">Rp {monthlySavings.toLocaleString('id-ID')}</p>
-            )}
-          </div>
-        </div>
       )}
 
       {operasionalWallets.length > 0 && (
