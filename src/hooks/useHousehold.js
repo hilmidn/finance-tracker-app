@@ -19,21 +19,31 @@ export function useHousehold(userIdProp) {
   const authUserId = useSelector((s) => s.auth.user?.id)
   const userId = userIdProp || authUserId
 
-  // Get my membership(s) — could have one pending and one accepted, but per design
-  // user can only be in 1 household (or 1 pending invite at a time)
+  // Get my membership(s) — uses RPC that bypasses RLS, so the
+  // membership is always findable regardless of whether RLS is
+  // evaluating auth.uid() correctly for the request context.
   const membershipQuery = useQuery({
     queryKey: ['householdMembership', userId],
     queryFn: async () => {
       if (!userId) return null
       const { data, error } = await supabase
-        .from('household_members')
-        .select('*, households(*)')
-        .eq('user_id', userId)
-        .order('invited_at', { ascending: false })
-        .limit(1)
+        .rpc('get_my_household_membership')
         .maybeSingle()
       if (error) throw error
-      return data
+      if (!data) return null
+      // RPC returns flat columns; reshape to match what rest of
+      // the app expects: { id, user_id, household_id, ..., households: {...} }
+      return {
+        id: data.membership_id,
+        user_id: data.user_id,
+        household_id: data.household_id,
+        role: data.role,
+        status: data.status,
+        invited_by: data.invited_by,
+        invited_at: data.invited_at,
+        accepted_at: data.accepted_at,
+        households: data.household,
+      }
     },
     enabled: !!userId,
   })

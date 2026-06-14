@@ -40,7 +40,10 @@ export default function HouseholdTransactionsPage() {
   const [defaultType, setDefaultType] = useState(undefined)
 
   const { members } = useHouseholdMembers(householdId)
-  const { categories: rawCategories } = useHouseholdCategories(householdId)
+  // useHouseholdCategories returns { categories: {pemasukan, pengeluaran}, raw: [...] }.
+  // Destructure `raw` (the array) — the previous `categories: rawCategories`
+  // was the grouped object which has no .filter() method.
+  const { raw: rawCategories } = useHouseholdCategories(householdId)
   const { wallets } = useHouseholdWallets(householdId)
   const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction } =
     useHouseholdTransactions(householdId, userId)

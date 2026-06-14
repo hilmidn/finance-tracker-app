@@ -72,9 +72,14 @@ CREATE TABLE IF NOT EXISTS household_invites (
   invited_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  responded_at TIMESTAMPTZ,
-  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
+  responded_at TIMESTAMPTZ
 );
+
+-- Idempotent: kalau table udah ada (dari run sebelumnya), CREATE TABLE
+-- IF NOT EXISTS di-skip, jadi kolom baru ini ga bakal masuk. ALTER
+-- TABLE ADD COLUMN IF NOT EXISTS selalu jalan, jadi dijamin kepasang.
+ALTER TABLE household_invites
+  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days');
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_household_invites_unique
   ON household_invites(household_id, email)
@@ -371,7 +376,60 @@ GRANT EXECUTE ON FUNCTION public.create_household(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_household(TEXT) TO anon;
 
 -- ═══════════════════════════════════════════════════════════════
--- 6. RPC: accept_household_invite (bypass RLS, atomik accept invite)
+-- 6. RPC: get_my_household_membership (bypass RLS)
+-- ═══════════════════════════════════════════════════════════════
+-- Bypass RLS buat dapetin membership + household data. Sama alasan
+-- dengan create_household: ada kalanya RLS context di request ga
+-- nge-evaluate auth.uid() dengan benar. RPC ini pake auth.uid()
+-- di SQL langsung (under SECURITY DEFINER) jadi selalu konsisten.
+
+CREATE OR REPLACE FUNCTION public.get_my_household_membership()
+RETURNS TABLE(
+  membership_id UUID,
+  user_id UUID,
+  household_id UUID,
+  role TEXT,
+  status TEXT,
+  invited_by UUID,
+  invited_at TIMESTAMPTZ,
+  accepted_at TIMESTAMPTZ,
+  household JSON
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN; -- no rows = no membership
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    hm.id, hm.user_id, hm.household_id, hm.role, hm.status,
+    hm.invited_by, hm.invited_at, hm.accepted_at,
+    json_build_object(
+      'id', h.id,
+      'name', h.name,
+      'created_by', h.created_by,
+      'created_at', h.created_at
+    )
+  FROM public.household_members hm
+  JOIN public.households h ON h.id = hm.household_id
+  WHERE hm.user_id = v_user_id
+  ORDER BY hm.invited_at DESC
+  LIMIT 1;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_my_household_membership() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_household_membership() TO anon;
+
+-- ═══════════════════════════════════════════════════════════════
+-- 7. RPC: accept_household_invite (bypass RLS, atomik accept invite)
 -- ═══════════════════════════════════════════════════════════════
 -- Sama pola: SECURITY DEFINER biar RLS ga block. Function validate:
 --   - User authenticated

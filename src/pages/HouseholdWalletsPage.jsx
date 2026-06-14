@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Plus, Wallet, Trash2, Pencil, ArrowLeftRight, X, PiggyBank } from 'lucide-react'
 import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
+import { useHousehold } from '../hooks/useHousehold'
 import HouseholdWalletBalanceCard from '../components/HouseholdWalletBalanceCard'
 import AddHouseholdWalletModal from '../components/AddHouseholdWalletModal'
 
@@ -13,11 +14,26 @@ const WALLET_TYPES = [
 ]
 
 export default function HouseholdWalletsPage() {
-  const householdId = useSelector((s) => s.auth.currentHouseholdId)
+  const user = useSelector((s) => s.auth.user)
+  const userId = user?.id
+  // Use useHousehold (RPC-backed) instead of Redux currentHouseholdId
+  // because Redux state is lost on page reload. The RPC always finds
+  // the user's membership even after reload.
+  const { household, isMember, loading: householdLoading } = useHousehold(userId)
+  const householdId = household?.id
   const { wallets, balances, loading, deleteWallet } = useHouseholdWallets(householdId)
   const [showAdd, setShowAdd] = useState(false)
 
-  if (!householdId) {
+  if (householdLoading) {
+    return (
+      <div className="space-y-3">
+        <div className="h-20 bg-gray-200 rounded-xl animate-pulse" />
+        <div className="h-20 bg-gray-200 rounded-xl animate-pulse" />
+      </div>
+    )
+  }
+
+  if (!isMember) {
     return (
       <div className="text-center py-16">
         <p className="text-gray-400 text-sm">Kamu belum punya household</p>
