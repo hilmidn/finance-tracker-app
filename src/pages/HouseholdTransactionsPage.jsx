@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
-import { Plus, ArrowLeftRight, BarChart3, List, TrendingUp, TrendingDown, Home, ArrowLeft, Wallet } from 'lucide-react'
+import { Plus, ArrowLeftRight, BarChart3, List, TrendingUp, TrendingDown } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import HouseholdTransactionItem from '../components/HouseholdTransactionItem'
 import HouseholdTransactionForm from '../components/HouseholdTransactionForm'
 import MonthPicker from '../components/MonthPicker'
-import { useHousehold } from '../hooks/useHousehold'
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
 import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
 import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
@@ -22,13 +20,10 @@ function monthRange(month) {
   }
 }
 
-export default function HouseholdTransactionsPage() {
-  const navigate = useNavigate()
+export default function HouseholdTransactionsPage({ scope }) {
   const user = useSelector((s) => s.auth.user)
   const userId = user?.id
-  const { household, isMember, loading: householdLoading } = useHousehold(userId)
-
-  const householdId = household?.id
+  const householdId = scope.householdId
 
   const [month, setMonth] = useState(() => {
     const d = new Date()
@@ -40,15 +35,12 @@ export default function HouseholdTransactionsPage() {
   const [defaultType, setDefaultType] = useState(undefined)
 
   const { members } = useHouseholdMembers(householdId)
-  // useHouseholdCategories returns { categories: {pemasukan, pengeluaran}, raw: [...] }.
-  // Destructure `raw` (the array) — the previous `categories: rawCategories`
-  // was the grouped object which has no .filter() method.
+  // useHouseholdCategories returns { categories: {pemasukan, pengeluaran}, raw: [...] }
   const { raw: rawCategories } = useHouseholdCategories(householdId)
   const { wallets } = useHouseholdWallets(householdId)
   const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction, unshareSharedTransaction } =
     useHouseholdTransactions(householdId, userId)
 
-  // Bucket household categories by type
   const categories = useMemo(() => {
     const cats = rawCategories || []
     return {
@@ -57,7 +49,6 @@ export default function HouseholdTransactionsPage() {
     }
   }, [rawCategories])
 
-  // Filter by month
   const filteredTransactions = useMemo(() => {
     const r = monthRange(month)
     if (!r) return transactions
@@ -67,7 +58,6 @@ export default function HouseholdTransactionsPage() {
     })
   }, [transactions, month])
 
-  // Summary for the month
   const monthSummary = useMemo(() => {
     return {
       pemasukan: filteredTransactions.filter(t => (t._raw?.type || t.type) === 'pemasukan').reduce((s, t) => s + (t._raw?.amount || t.amount || 0), 0),
@@ -76,7 +66,6 @@ export default function HouseholdTransactionsPage() {
     }
   }, [filteredTransactions])
 
-  // Category breakdown for the month
   const categoryBreakdown = useMemo(() => {
     const bk = {}
     filteredTransactions
@@ -92,70 +81,23 @@ export default function HouseholdTransactionsPage() {
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
   const barColors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-cyan-500', 'bg-teal-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500']
 
-  // Show loading or not-in-household
-  if (householdLoading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-12 bg-gray-200 rounded-xl animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded-xl animate-pulse" />
-      </div>
-    )
-  }
-
-  if (!isMember) {
-    return (
-      <div className="text-center py-16 space-y-3">
-        <div className="inline-flex items-center justify-center w-14 h-14 bg-gray-100 rounded-2xl">
-          <Home size={24} className="text-gray-400" />
-        </div>
-        <p className="text-gray-700 font-medium">Belum ada household</p>
-        <p className="text-gray-400 text-xs">Buat atau terima invite dulu di Pengaturan</p>
-        <button
-          onClick={() => navigate('/settings')}
-          className="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium"
-        >
-          Ke Pengaturan
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/household')}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            <ArrowLeft size={20} className="text-gray-700" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold">Household</h1>
-            <p className="text-[10px] text-gray-500">{household.name} · {members.length} anggota</p>
-          </div>
+        <div>
+          <h1 className="text-xl font-bold">Transaksi</h1>
+          <p className="text-xs text-gray-500 mt-0.5">{scope.household?.name || 'Household'} · {members.length} anggota</p>
         </div>
         {tab === 'riwayat' && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate('/household/wallets')}
-              className="bg-gray-100 text-gray-700 p-3 rounded-xl hover:bg-gray-200 active:scale-95 transition-all"
-              title="Dompet Household"
-            >
-              <Wallet size={20} />
-            </button>
-            <button
-              onClick={() => { setEditTx(null); setDefaultType(undefined); setShowForm(true) }}
-              className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
-            >
-              <Plus size={22} />
-            </button>
-          </div>
+          <button
+            onClick={() => { setEditTx(null); setDefaultType(undefined); setShowForm(true) }}
+            className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
+          >
+            <Plus size={22} />
+          </button>
         )}
       </div>
 
-      {/* Tabs */}
       <div className="flex rounded-xl overflow-hidden border border-gray-200 bg-gray-50 p-1">
         <button onClick={() => setTab('riwayat')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg transition-all ${tab === 'riwayat' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
@@ -169,7 +111,6 @@ export default function HouseholdTransactionsPage() {
 
       <MonthPicker value={month} onChange={setMonth} />
 
-      {/* ══════ TAB: RIWAYAT ══════ */}
       {tab === 'riwayat' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
@@ -199,9 +140,6 @@ export default function HouseholdTransactionsPage() {
                 onEdit={(t) => { setEditTx(t); setShowForm(true) }}
                 onDelete={async (id, isShared) => {
                   if (isShared) {
-                    // Revoke share: clear shared_to_household_id on the
-                    // personal transaction so it stops appearing in the
-                    // household ledger.
                     try {
                       await unshareSharedTransaction(id)
                     } catch (err) {
@@ -218,7 +156,6 @@ export default function HouseholdTransactionsPage() {
         </div>
       )}
 
-      {/* ══════ TAB: ANALISIS ══════ */}
       {tab === 'analisis' && (
         <div className="space-y-5">
           {filteredTransactions.length === 0 ? (
@@ -231,7 +168,6 @@ export default function HouseholdTransactionsPage() {
             </div>
           ) : (
             <>
-              {/* Summary */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
                   <TrendingUp size={13} className="text-green-600 mb-1" />
@@ -250,7 +186,6 @@ export default function HouseholdTransactionsPage() {
                 </div>
               </div>
 
-              {/* Category breakdown */}
               {categoryBreakdown.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">

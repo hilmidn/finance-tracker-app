@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
-import { Plus, Wallet, Trash2, Pencil, ArrowLeftRight, X, PiggyBank } from 'lucide-react'
+import { Plus, Wallet, Trash2, Pencil, X, PiggyBank } from 'lucide-react'
 import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
-import { useHousehold } from '../hooks/useHousehold'
 import HouseholdWalletBalanceCard from '../components/HouseholdWalletBalanceCard'
 import AddHouseholdWalletModal from '../components/AddHouseholdWalletModal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -14,37 +13,18 @@ const WALLET_TYPES = [
   { value: 'e-wallet', label: 'E-Wallet' },
 ]
 
-export default function HouseholdWalletsPage() {
-  const user = useSelector((s) => s.auth.user)
-  const userId = user?.id
-  // Use useHousehold (RPC-backed) instead of Redux currentHouseholdId
-  // because Redux state is lost on page reload. The RPC always finds
-  // the user's membership even after reload.
-  const { household, isMember, loading: householdLoading } = useHousehold(userId)
-  const householdId = household?.id
+/**
+ * Household wallets page. Rendered when scope.isHousehold is true.
+ * Receives the scope from the parent so it doesn't have to do its
+ * own mode detection.
+ */
+export default function HouseholdWalletsPage({ scope }) {
+  const householdId = scope.householdId
   const { wallets, balances, loading, deleteWallet } = useHouseholdWallets(householdId)
   const [showAdd, setShowAdd] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(null)  // wallet object or null
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
-
-  if (householdLoading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-20 bg-gray-200 rounded-xl animate-pulse" />
-        <div className="h-20 bg-gray-200 rounded-xl animate-pulse" />
-      </div>
-    )
-  }
-
-  if (!isMember) {
-    return (
-      <div className="text-center py-16">
-        <p className="text-gray-400 text-sm">Kamu belum punya household</p>
-        <p className="text-gray-300 text-xs mt-1">Buat household dulu di Pengaturan</p>
-      </div>
-    )
-  }
 
   const handleConfirmDelete = async () => {
     if (!pendingDelete) return
@@ -65,8 +45,8 @@ export default function HouseholdWalletsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Dompet Household</h1>
-          <p className="text-xs text-gray-500 mt-0.5">{wallets.length} dompet / rekening</p>
+          <h1 className="text-xl font-bold">Dompet</h1>
+          <p className="text-xs text-gray-500 mt-0.5">{wallets.length} dompet household</p>
         </div>
         <button onClick={() => setShowAdd(true)}
           className="bg-indigo-600 text-white p-3 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">
