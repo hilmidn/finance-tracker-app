@@ -9,8 +9,7 @@ import { setPendingCount } from '../store/uiSlice'
 const HOUSEHOLD_TX_SELECT = `
   *,
   household_wallets:household_wallet_id (id, name, type, icon),
-  household_categories:household_category_id (id, name, type),
-  creator:created_by (id, email, raw_user_meta_data)
+  household_categories:household_category_id (id, name, type)
 `
 
 function genId() { return crypto.randomUUID() }
