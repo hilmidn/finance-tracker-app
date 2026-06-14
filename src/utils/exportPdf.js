@@ -45,7 +45,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
 
   // ============== KOP ==============
   doc.setFontSize(18).setFont('helvetica', 'bold').setTextColor(0, 0, 0)
-  doc.text('Finance App', ML, 22)
+  doc.text('Noura', ML, 22)
   doc.setFont('helvetica', 'normal').setFontSize(12).setTextColor(...H.gray)
   doc.text(monthLabel, PW - MR, 22, { align: 'right' })
 
@@ -198,7 +198,7 @@ export function exportToPDF({ transactions, user, monthLabel, savingsTransaction
 
   // ============== FOOTER ==============
   doc.setFontSize(7).setTextColor(...H.gray)
-  doc.text(`Dihasilkan oleh Finance App — ${NOW.toLocaleDateString('id-ID')}`, ML, doc.internal.pageSize.getHeight() - 12)
+  doc.text(`Dihasilkan oleh Noura — ${NOW.toLocaleDateString('id-ID')}`, ML, doc.internal.pageSize.getHeight() - 12)
 
   doc.save(`Laporan Keuangan ${monthLabel}.pdf`)
 }

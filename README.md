@@ -1,6 +1,6 @@
-# Catatan Keuangan
+# Noura
 
-Aplikasi pencatatan keuangan pribadi — mobile-first, dibangun dengan Vite + React + Supabase.
+Smart finance for everyday life — mobile-first, dibangun dengan Vite + React + Supabase.
 
 ## Fitur
 

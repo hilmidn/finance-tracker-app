@@ -15,19 +15,22 @@ ALTER TABLE household_members
 -- ═══════════════════════════════════════════════════════════════
 -- 2. Drop per-tx share model (replaced by per-user toggle)
 -- ═══════════════════════════════════════════════════════════════
+-- Drop policies referencing the columns first (required before DROP COLUMN)
 DROP POLICY IF EXISTS "Household members can view shared transactions" ON transactions;
+DROP POLICY IF EXISTS "Users can insert own transactions" ON transactions;
+DROP POLICY IF EXISTS "Users can update own transactions" ON transactions;
+
 DROP INDEX IF EXISTS idx_transactions_shared_household;
+
 ALTER TABLE transactions DROP COLUMN IF EXISTS shared_to_household_id;
 ALTER TABLE transactions DROP COLUMN IF EXISTS household_category_id;
 ALTER TABLE transactions DROP COLUMN IF EXISTS household_wallet_id;
 
--- Simplify INSERT/UPDATE policies (no more shared_to_household_id check)
-DROP POLICY IF EXISTS "Users can insert own transactions" ON transactions;
+-- Recreate simplified INSERT/UPDATE policies (no more shared_to_household_id check)
 CREATE POLICY "Users can insert own transactions"
   ON transactions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can update own transactions" ON transactions;
 CREATE POLICY "Users can update own transactions"
   ON transactions FOR UPDATE
   USING (auth.uid() = user_id)

@@ -1,6 +1,6 @@
 import Dexie from 'dexie'
 
-const db = new Dexie('FinanceApp')
+const db = new Dexie('Noura')
 
 db.version(1).stores({
   transactions: 'clientId, serverId, userId, type, date, synced',
