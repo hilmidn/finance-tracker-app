@@ -354,3 +354,154 @@ $$;
 -- Grant execute ke authenticated users
 GRANT EXECUTE ON FUNCTION public.create_household(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_household(TEXT) TO anon;
+
+-- ═══════════════════════════════════════════════════════════════
+-- 6. RPC: accept_household_invite (bypass RLS, atomik accept invite)
+-- ═══════════════════════════════════════════════════════════════
+-- Sama pola: SECURITY DEFINER biar RLS ga block. Function validate:
+--   - User authenticated
+--   - Invite exists, not expired, not yet responded
+--   - Invite email matches current user's email
+-- Baru INSERT ke household_members + UPDATE invite status.
+-- Tanpa RPC, RLS policy 'Admins can invite members' nolak
+-- (invitee bukan admin, bukan creator) — padahal ini valid case.
+
+CREATE OR REPLACE FUNCTION public.accept_household_invite(p_invite_id UUID)
+RETURNS TABLE(
+  membership_id UUID,
+  household_id UUID,
+  user_id UUID,
+  role TEXT,
+  status TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_user_email TEXT;
+  v_invite RECORD;
+  v_membership_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated — auth.uid() is null. Check your session token.';
+  END IF;
+
+  -- Get current user's email from auth.users (security definer, ok)
+  SELECT email INTO v_user_email
+  FROM auth.users
+  WHERE id = v_user_id;
+
+  IF v_user_email IS NULL THEN
+    RAISE EXCEPTION 'User email not found';
+  END IF;
+
+  -- Lookup invite
+  SELECT * INTO v_invite
+  FROM public.household_invites
+  WHERE id = p_invite_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invite not found: %', p_invite_id;
+  END IF;
+
+  -- Validate invite belongs to this user
+  IF lower(v_invite.email) <> lower(v_user_email) THEN
+    RAISE EXCEPTION 'Invite is not for the current user (email mismatch)';
+  END IF;
+
+  -- Validate invite not expired
+  IF v_invite.expires_at IS NOT NULL AND v_invite.expires_at < NOW() THEN
+    RAISE EXCEPTION 'Invite has expired';
+  END IF;
+
+  -- Validate invite still pending
+  IF v_invite.status <> 'pending' THEN
+    RAISE EXCEPTION 'Invite already %', v_invite.status;
+  END IF;
+
+  -- Upsert membership (handle re-accept after rejection)
+  INSERT INTO public.household_members (
+    household_id, user_id, role, status, invited_by, invited_at, accepted_at
+  )
+  VALUES (
+    v_invite.household_id, v_user_id, 'member', 'accepted',
+    v_invite.invited_by, v_invite.created_at, NOW()
+  )
+  ON CONFLICT (household_id, user_id) DO UPDATE
+    SET status = 'accepted',
+        accepted_at = NOW(),
+        invited_by = EXCLUDED.invited_by
+  RETURNING id INTO v_membership_id;
+
+  -- Mark invite as accepted
+  UPDATE public.household_invites
+  SET status = 'accepted', responded_at = NOW()
+  WHERE id = p_invite_id;
+
+  membership_id := v_membership_id;
+  household_id := v_invite.household_id;
+  user_id := v_user_id;
+  role := 'member';
+  status := 'accepted';
+
+  RETURN NEXT;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.accept_household_invite(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.accept_household_invite(UUID) TO anon;
+
+-- ═══════════════════════════════════════════════════════════════
+-- 7. RPC: reject_household_invite (bypass RLS)
+-- ═══════════════════════════════════════════════════════════════
+-- Sama alasan: clean up via SECURITY DEFINER biar konsisten.
+
+CREATE OR REPLACE FUNCTION public.reject_household_invite(p_invite_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_user_email TEXT;
+  v_invite RECORD;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated — auth.uid() is null. Check your session token.';
+  END IF;
+
+  SELECT email INTO v_user_email
+  FROM auth.users
+  WHERE id = v_user_id;
+
+  SELECT * INTO v_invite
+  FROM public.household_invites
+  WHERE id = p_invite_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invite not found: %', p_invite_id;
+  END IF;
+
+  IF lower(v_invite.email) <> lower(v_user_email) THEN
+    RAISE EXCEPTION 'Invite is not for the current user';
+  END IF;
+
+  IF v_invite.status <> 'pending' THEN
+    RAISE EXCEPTION 'Invite already %', v_invite.status;
+  END IF;
+
+  UPDATE public.household_invites
+  SET status = 'rejected', responded_at = NOW()
+  WHERE id = p_invite_id;
+
+  RETURN TRUE;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.reject_household_invite(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reject_household_invite(UUID) TO anon;

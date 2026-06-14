@@ -102,47 +102,17 @@ export function useHouseholdMembers(householdId) {
     },
   })
 
-  // Accept invite (called by invitee) — creates household_members row
+  // Accept invite (called by invitee) — uses RPC to bypass RLS
   const acceptInviteMutation = useMutation({
-    mutationFn: async ({ inviteId, userId }) => {
-      // 1. Get the invite to know the household_id
-      const { data: invite, error: gErr } = await supabase
-        .from('household_invites')
-        .select('*')
-        .eq('id', inviteId)
+    mutationFn: async ({ inviteId }) => {
+      const { data, error } = await supabase
+        .rpc('accept_household_invite', { p_invite_id: inviteId })
         .single()
-      if (gErr) throw gErr
-
-      // 2. Create household_members row
-      const { error: mErr } = await supabase
-        .from('household_members')
-        .insert({
-          household_id: invite.household_id,
-          user_id: userId,
-          role: 'member',
-          status: 'accepted',
-          invited_by: invite.invited_by,
-          accepted_at: new Date().toISOString(),
-        })
-      if (mErr) {
-        if (mErr.code === '23505') {
-          // Already a member — update the invite and move on
-          await supabase
-            .from('household_invites')
-            .update({ status: 'accepted', responded_at: new Date().toISOString() })
-            .eq('id', inviteId)
-          return invite
-        }
-        throw mErr
+      if (error) {
+        console.error('[acceptInvite] RPC failed', error)
+        throw error
       }
-
-      // 3. Update invite status
-      await supabase
-        .from('household_invites')
-        .update({ status: 'accepted', responded_at: new Date().toISOString() })
-        .eq('id', inviteId)
-
-      return invite
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['householdMembership'] })
@@ -150,15 +120,17 @@ export function useHouseholdMembers(householdId) {
     },
   })
 
-  // Reject invite (called by invitee)
+  // Reject invite (called by invitee) — uses RPC to bypass RLS
   const rejectInviteMutation = useMutation({
     mutationFn: async (inviteId) => {
-      const { error } = await supabase
-        .from('household_invites')
-        .update({ status: 'rejected', responded_at: new Date().toISOString() })
-        .eq('id', inviteId)
-      if (error) throw error
-      return inviteId
+      const { data, error } = await supabase
+        .rpc('reject_household_invite', { p_invite_id: inviteId })
+        .single()
+      if (error) {
+        console.error('[rejectInvite] RPC failed', error)
+        throw error
+      }
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pendingInvites'] })

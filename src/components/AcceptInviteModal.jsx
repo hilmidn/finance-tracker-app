@@ -11,7 +11,7 @@ export default function AcceptInviteModal({ invite, userId, onClose, onAccepted 
     setSubmitting(true)
     setError(null)
     try {
-      await acceptInvite({ inviteId: invite.id, userId })
+      await acceptInvite({ inviteId: invite.id })
       onAccepted?.()
       onClose()
     } catch (err) {
