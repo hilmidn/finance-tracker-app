@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { X, Home, Check, XIcon } from 'lucide-react'
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
+import ConfirmModal from './ConfirmModal'
 
 export default function AcceptInviteModal({ invite, userId, onClose, onAccepted }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [confirmReject, setConfirmReject] = useState(false)
   const { acceptInvite, rejectInvite } = useHouseholdMembers(invite.household_id)
 
   const handleAccept = async () => {
@@ -21,15 +23,16 @@ export default function AcceptInviteModal({ invite, userId, onClose, onAccepted 
     }
   }
 
-  const handleReject = async () => {
-    if (!confirm('Tolak undangan ini?')) return
+  const handleConfirmReject = async () => {
     setSubmitting(true)
     setError(null)
     try {
       await rejectInvite(invite.id)
+      setConfirmReject(false)
       onClose()
     } catch (err) {
       setError(err.message || 'Gagal menolak undangan')
+      throw err  // keep confirm modal open
     } finally {
       setSubmitting(false)
     }
@@ -84,7 +87,7 @@ export default function AcceptInviteModal({ invite, userId, onClose, onAccepted 
 
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handleReject}
+              onClick={() => setConfirmReject(true)}
               disabled={submitting}
               className="flex items-center justify-center gap-1.5 bg-gray-100 text-gray-700 rounded-xl py-3 font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 active:scale-[0.98]"
             >
@@ -100,6 +103,18 @@ export default function AcceptInviteModal({ invite, userId, onClose, onAccepted 
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmReject}
+        onClose={() => { if (!submitting) setConfirmReject(false) }}
+        onConfirm={handleConfirmReject}
+        title="Tolak undangan ini?"
+        message={`Undangan ke "${invite.households?.name || 'Household'}" akan dihapus. Orang yang ngundang harus kirim ulang kalau kamu berubah pikiran.`}
+        confirmText="Tolak Undangan"
+        cancelText="Kembali"
+        variant="danger"
+        loading={submitting}
+      />
     </div>
   )
 }

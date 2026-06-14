@@ -232,7 +232,30 @@ export function useHouseholdTransactions(householdId, userId) {
         await updatePendingCount()
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
+
+  // Unshare mutation: clear shared_to_household_id on a personal tx so
+  // it stops appearing in the household ledger. Used when the user wants
+  // to revoke a share from the household view.
+  const unshareMutation = useMutation({
+    mutationFn: async (personalTxId) => {
+      if (!personalTxId) throw new Error('Missing transaction id')
+      const { error } = await supabase
+        .from('transactions')
+        .update({ shared_to_household_id: null })
+        .eq('id', personalTxId)
+      if (error) throw error
+      return personalTxId
+    },
+    onSuccess: async (_data, personalTxId) => {
+      // Mirror to local cache so offline view reflects the change
+      const local = await db.transactions.where('serverId').equals(personalTxId).first()
+      if (local) await db.transactions.put({ ...local, shared_to_household_id: null, synced: true })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: key })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
   })
 
   // getSummary (month) — for household wallets page
@@ -312,6 +335,8 @@ export function useHouseholdTransactions(householdId, userId) {
     addTransaction: (tx) => addMutation.mutateAsync(tx),
     updateTransaction: (id, updates) => updateMutation.mutateAsync({ id, updates }),
     deleteTransaction: (id) => deleteMutation.mutateAsync(id),
+    unshareSharedTransaction: (personalTxId) => unshareMutation.mutateAsync(personalTxId),
+    isUnsharing: unshareMutation.isPending,
     getSummary,
     getCategoryBreakdown,
   }

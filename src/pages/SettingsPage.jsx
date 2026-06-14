@@ -5,6 +5,7 @@ import { Plus, Trash2, LogOut, Tag, Home, ChevronRight, ListChecks, Wallet } fro
 import { useCategories } from '../hooks/useCategories'
 import { useHousehold } from '../hooks/useHousehold'
 import CreateHouseholdModal from '../components/CreateHouseholdModal'
+import ConfirmModal from '../components/ConfirmModal'
 
 export default function SettingsPage({ onSignOut }) {
   const userId = useSelector((s) => s.auth.user?.id)
@@ -13,6 +14,9 @@ export default function SettingsPage({ onSignOut }) {
   const [showAdd, setShowAdd] = useState(false)
   const [newCat, setNewCat] = useState('')
   const [showCreateHousehold, setShowCreateHousehold] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)  // category object or null
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const { categories, loading, addCategory, deleteCategory } = useCategories(userId)
   const { household } = useHousehold(userId)
@@ -24,8 +28,19 @@ export default function SettingsPage({ onSignOut }) {
     setNewCat(''); setShowAdd(false)
   }
 
-  const handleDelete = (id, type) => {
-    deleteCategory(id, type)
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteCategory(pendingDelete.id, activeTab)
+      setPendingDelete(null)
+    } catch (err) {
+      setDeleteError(err.message || 'Kategori yang dipakai transaksi tidak bisa dihapus. Hapus atau pindahkan transaksi terkait dulu.')
+      throw err  // keep modal open
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -110,7 +125,8 @@ export default function SettingsPage({ onSignOut }) {
                   </div>
                   <span className="text-sm font-medium text-gray-800">{cat.name}</span>
                 </div>
-                <button onClick={() => handleDelete(cat.id, activeTab)}
+                <button onClick={() => { setDeleteError(null); setPendingDelete(cat) }}
+                  aria-label={`Hapus kategori ${cat.name}`}
                   className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
                   <Trash2 size={15} />
                 </button>
@@ -145,6 +161,24 @@ export default function SettingsPage({ onSignOut }) {
       {showCreateHousehold && (
         <CreateHouseholdModal onClose={() => setShowCreateHousehold(false)} />
       )}
+
+      <ConfirmModal
+        isOpen={!!pendingDelete}
+        onClose={() => { if (!deleting) { setPendingDelete(null); setDeleteError(null) } }}
+        onConfirm={handleConfirmDelete}
+        title={
+          deleteError ? 'Gagal menghapus kategori' :
+          `Hapus kategori "${pendingDelete?.name}"?`
+        }
+        message={
+          deleteError ||
+          'Kategori yang dipakai transaksi tidak bisa dihapus. Hapus atau pindahkan transaksi terkait dulu.'
+        }
+        confirmText={deleteError ? 'Tutup' : 'Hapus'}
+        cancelText="Batal"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   )
 }

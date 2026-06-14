@@ -4,6 +4,7 @@ import { useWallets } from '../hooks/useWallets'
 import { useTransfers } from '../hooks/useTransfers'
 import { useTransactions } from '../hooks/useTransactions'
 import TransferForm from '../components/TransferForm'
+import ConfirmModal from '../components/ConfirmModal'
 
 const WALLET_ICONS = { cash: '👛', bank: '🏦', 'e-wallet': '📱' }
 const WALLET_TYPES = [
@@ -37,6 +38,9 @@ export default function WalletsPageInner({ userId }) {
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({ name: '', type: 'cash', icon: '', initial_balance: '', is_savings: false })
   const [submitting, setSubmitting] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)  // wallet object or null
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const totalBalance = Object.values(balances).reduce((sum, b) => sum + (b || 0), 0)
   const operasionalBalance = wallets.filter(w => !w.is_savings).reduce((s, w) => s + (balances[w.id] || 0), 0)
@@ -62,8 +66,26 @@ export default function WalletsPageInner({ userId }) {
   }
 
   const handleDelete = async (w) => {
-    await deleteWallet(w.id)
+    setPendingDelete(w)
   }
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteWallet(pendingDelete.id)
+      setPendingDelete(null)
+    } catch (err) {
+      setDeleteError(err.message)
+      throw err  // keep modal open
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const txCountForWallet = (walletId) =>
+    transactions.filter(t => t.wallet_id === walletId).length
 
   return (
     <div className="space-y-5">
@@ -127,8 +149,8 @@ export default function WalletsPageInner({ userId }) {
                   </p>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => handleEdit(w)} className="p-1.5 text-gray-300 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"><Pencil size={14} /></button>
-                  <button onClick={() => handleDelete(w)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"><Trash2 size={14} /></button>
+                  <button onClick={() => handleEdit(w)} aria-label={`Edit dompet ${w.name}`} className="p-1.5 text-gray-300 hover:text-indigo-500 transition-colors rounded-lg hover:bg-indigo-50"><Pencil size={14} /></button>
+                  <button onClick={() => handleDelete(w)} aria-label={`Hapus dompet ${w.name}`} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"><Trash2 size={14} /></button>
                 </div>
               </div>
             </div>
@@ -141,6 +163,30 @@ export default function WalletsPageInner({ userId }) {
           await addTransfer(tr); setShowTransfer(false);
         }} onClose={() => setShowTransfer(false)} />
       )}
+
+      <ConfirmModal
+        isOpen={!!pendingDelete}
+        onClose={() => { if (!deleting) { setPendingDelete(null); setDeleteError(null) } }}
+        onConfirm={handleConfirmDelete}
+        title={
+          deleteError ? 'Gagal menghapus dompet' :
+          `Hapus dompet "${pendingDelete?.name}"?`
+        }
+        message={
+          deleteError ||
+          (() => {
+            const txCount = txCountForWallet(pendingDelete?.id)
+            if (txCount > 0) {
+              return `Dompet ini dipakai ${txCount} transaksi. Hapus dompet akan mengosongkan saldo awal dari total, tapi transaksi terkait tidak akan terhapus.`
+            }
+            return 'Saldo awal akan hilang dari total. Transaksi terkait (kalau ada) tetap tersimpan tanpa reference dompet ini.'
+          })()
+        }
+        confirmText={deleteError ? 'Tutup' : 'Hapus'}
+        cancelText="Batal"
+        variant="danger"
+        loading={deleting}
+      />
 
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">

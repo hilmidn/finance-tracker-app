@@ -45,7 +45,7 @@ export default function HouseholdTransactionsPage() {
   // was the grouped object which has no .filter() method.
   const { raw: rawCategories } = useHouseholdCategories(householdId)
   const { wallets } = useHouseholdWallets(householdId)
-  const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction } =
+  const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction, unshareSharedTransaction } =
     useHouseholdTransactions(householdId, userId)
 
   // Bucket household categories by type
@@ -199,9 +199,15 @@ export default function HouseholdTransactionsPage() {
                 onEdit={(t) => { setEditTx(t); setShowForm(true) }}
                 onDelete={async (id, isShared) => {
                   if (isShared) {
-                    // Unshare: just clear the shared_to_household_id field on the personal tx
-                    // Reuse updateTransaction — for shared, we need a different approach
-                    // For now, navigate to share toggle. (Could be enhanced with unshare mutation.)
+                    // Revoke share: clear shared_to_household_id on the
+                    // personal transaction so it stops appearing in the
+                    // household ledger.
+                    try {
+                      await unshareSharedTransaction(id)
+                    } catch (err) {
+                      console.error('[HouseholdTx] unshare failed', err)
+                      throw err
+                    }
                   } else {
                     await deleteTransaction(id)
                   }

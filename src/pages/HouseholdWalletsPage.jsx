@@ -5,6 +5,7 @@ import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
 import { useHousehold } from '../hooks/useHousehold'
 import HouseholdWalletBalanceCard from '../components/HouseholdWalletBalanceCard'
 import AddHouseholdWalletModal from '../components/AddHouseholdWalletModal'
+import ConfirmModal from '../components/ConfirmModal'
 
 const WALLET_ICONS = { cash: '👛', bank: '🏦', 'e-wallet': '📱' }
 const WALLET_TYPES = [
@@ -23,6 +24,9 @@ export default function HouseholdWalletsPage() {
   const householdId = household?.id
   const { wallets, balances, loading, deleteWallet } = useHouseholdWallets(householdId)
   const [showAdd, setShowAdd] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)  // wallet object or null
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   if (householdLoading) {
     return (
@@ -42,9 +46,19 @@ export default function HouseholdWalletsPage() {
     )
   }
 
-  const handleDelete = async (w) => {
-    if (!confirm(`Hapus dompet "${w.name}"?`)) return
-    await deleteWallet(w.id)
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteWallet(pendingDelete.id)
+      setPendingDelete(null)
+    } catch (err) {
+      setDeleteError(err.message)
+      throw err  // keep modal open
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -99,7 +113,8 @@ export default function HouseholdWalletsPage() {
                     Rp {(balances[w.id] || 0).toLocaleString('id-ID')}
                   </p>
                 </div>
-                <button onClick={() => handleDelete(w)}
+                <button onClick={() => { setDeleteError(null); setPendingDelete(w) }}
+                  aria-label={`Hapus dompet ${w.name}`}
                   className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
                   <Trash2 size={14} />
                 </button>
@@ -115,6 +130,24 @@ export default function HouseholdWalletsPage() {
           onClose={() => setShowAdd(false)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={!!pendingDelete}
+        onClose={() => { if (!deleting) { setPendingDelete(null); setDeleteError(null) } }}
+        onConfirm={handleConfirmDelete}
+        title={
+          deleteError ? 'Gagal menghapus dompet household' :
+          `Hapus dompet "${pendingDelete?.name}"?`
+        }
+        message={
+          deleteError ||
+          'Saldo awal akan hilang dari total household. Transaksi terkait (kalau ada) tetap tersimpan tanpa reference dompet ini.'
+        }
+        confirmText={deleteError ? 'Tutup' : 'Hapus'}
+        cancelText="Batal"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   )
 }
