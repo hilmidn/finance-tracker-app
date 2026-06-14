@@ -58,6 +58,44 @@ async function syncTransactions() {
   }
 }
 
+async function syncHouseholdTransactions() {
+  const all = await db.householdTransactions.toArray()
+  const pending = all.filter(t => t.synced === false)
+  const toDelete = pending.filter(t => t._deleted)
+  const toInsert = pending.filter(t => !t._deleted && !t.serverId)
+  const toUpdate = pending.filter(t => !t._deleted && t.serverId)
+
+  for (const tx of toDelete) {
+    if (tx.serverId) {
+      await supabase.from('household_transactions').delete().eq('id', tx.serverId)
+    }
+    await db.householdTransactions.delete(tx.clientId)
+  }
+
+  for (const tx of toInsert) {
+    const { clientId, synced, _deleted, serverId, ...data } = tx
+    const { data: result, error } = await supabase
+      .from('household_transactions')
+      .insert(data)
+      .select('*')
+      .single()
+    if (!error && result) {
+      await db.householdTransactions.put({ ...tx, serverId: result.id, synced: true })
+    }
+  }
+
+  for (const tx of toUpdate) {
+    const { clientId, synced, _deleted, serverId, ...data } = tx
+    const { error } = await supabase
+      .from('household_transactions')
+      .update(data)
+      .eq('id', serverId)
+    if (!error) {
+      await db.householdTransactions.put({ ...tx, synced: true })
+    }
+  }
+}
+
 async function syncTransfers() {
   const all = await db.transfers.toArray()
   const pending = all.filter(t => t.synced === false)
@@ -90,11 +128,14 @@ async function doSync() {
   store.dispatch(setSyncing(true))
   notify()
   try {
-    await Promise.all([syncTransactions(), syncTransfers()])
+    await Promise.all([syncTransactions(), syncTransfers(), syncHouseholdTransactions()])
     // Update pending count after sync
     const all = await db.transactions.toArray()
     const allTr = await db.transfers.toArray()
-    const cnt = all.filter(t => t.synced === false).length + allTr.filter(t => t.synced === false).length
+    const allHhTx = await db.householdTransactions.toArray()
+    const cnt = all.filter(t => t.synced === false).length
+      + allTr.filter(t => t.synced === false).length
+      + allHhTx.filter(t => t.synced === false).length
     store.dispatch(setPendingCount(cnt))
   } catch (e) {
     console.warn('Sync failed, will retry:', e.message)

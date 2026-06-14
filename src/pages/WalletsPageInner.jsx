@@ -137,7 +137,7 @@ export default function WalletsPageInner({ userId }) {
       )}
 
       {showTransfer && (
-        <TransferForm wallets={wallets} onSubmit={async (tr) => {
+        <TransferForm userId={userId} wallets={wallets} onSubmit={async (tr) => {
           await addTransfer(tr); setShowTransfer(false);
         }} onClose={() => setShowTransfer(false)} />
       )}

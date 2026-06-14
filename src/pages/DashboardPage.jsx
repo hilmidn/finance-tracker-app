@@ -2,12 +2,16 @@ import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { Plus, ArrowLeftRight, PiggyBank, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import BalanceCard from '../components/BalanceCard'
+import HouseholdSummaryCard from '../components/HouseholdSummaryCard'
 import TransactionItem from '../components/TransactionItem'
 import TransactionForm from '../components/TransactionForm'
 import MonthPicker from '../components/MonthPicker'
 import { useTransactions, useSummary, useMonthlySavings } from '../hooks/useTransactions'
 import { useWallets } from '../hooks/useWallets'
 import { useCategories } from '../hooks/useCategories'
+import { useHousehold } from '../hooks/useHousehold'
+import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
+import { useHouseholdSummary } from '../hooks/useHouseholdSummary'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 
@@ -27,6 +31,11 @@ export default function DashboardPage() {
   const { categories } = useCategories(userId)
   const { data: summary } = useSummary(userId, month)
   const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
+
+  // Household context
+  const { household, isMember } = useHousehold(userId)
+  const { members } = useHouseholdMembers(household?.id)
+  const householdSummary = useHouseholdSummary(household?.id, members)
 
   const monthLabel = format(new Date(month + '-01'), 'MMMM yyyy', { locale: id })
 
@@ -79,6 +88,17 @@ export default function DashboardPage() {
         month={monthLabel}
         loading={!summary}
       />
+
+      {/* Household summary card (only if user is a member) */}
+      {isMember && household && (
+        <HouseholdSummaryCard
+          household={household}
+          memberCount={householdSummary.memberCount}
+          totalBalance={householdSummary.totalBalance}
+          monthSummary={householdSummary.monthSummary}
+          loading={householdSummary.loading}
+        />
+      )}
 
       {!walletsLoading && wallets.length > 0 && (
         <div className="grid grid-cols-2 gap-3">
@@ -192,6 +212,7 @@ export default function DashboardPage() {
                 <TransactionItem
                   key={key}
                   tx={tx}
+                  isHouseholdMember={isMember}
                   onDelete={(id, isTransfer) => {
                     if (isTransfer) deleteTransfer(id)
                     else deleteTransaction(id)
@@ -202,6 +223,17 @@ export default function DashboardPage() {
                       setShowForm(true)
                     }
                   }}
+                  onShare={(t) => {
+                    setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id, _forceShare: true })
+                    setShowForm(true)
+                  }}
+                  onUnshare={async (t) => {
+                    await updateTransaction(t.id, {
+                      shared_to_household_id: null,
+                      household_category_id: null,
+                      household_wallet_id: null,
+                    })
+                  }}
                 />
               )
             })
@@ -211,10 +243,10 @@ export default function DashboardPage() {
 
       {showForm && (
         <TransactionForm
+          userId={userId}
           categories={categories}
           wallets={wallets}
           editTx={editTx}
-          userId={userId}
           onSubmit={editTx ? (data) => {
             updateTransaction(editTx.id, data)
             setShowForm(false)

@@ -9,6 +9,7 @@ import MonthPicker from '../components/MonthPicker'
 import { useTransactions, useSummary, useCategoryBreakdown, useMonthlySavings } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useWallets } from '../hooks/useWallets'
+import { useHousehold } from '../hooks/useHousehold'
 import { exportToPDF } from '../utils/exportPdf'
 
 function monthRange(month) {
@@ -50,6 +51,7 @@ export default function TransactionsPage() {
   const { transactions, loading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer, txRaw, trRaw } = useTransactions(userId)
   const { categories } = useCategories(userId)
   const { wallets } = useWallets(userId)
+  const { isMember } = useHousehold(userId)
   const { data: summary, isLoading: summaryLoading } = useSummary(userId, month)
   const { data: breakdown = [], isLoading: breakdownLoading } = useCategoryBreakdown(userId, month)
   const { data: monthlySavings = 0, isLoading: savingsLoading } = useMonthlySavings(userId, month)
@@ -312,9 +314,21 @@ export default function TransactionsPage() {
               return (
                 <TransactionItem
                   key={key} tx={tx}
+                  isHouseholdMember={isMember}
                   onDelete={(id, isTransfer) => { isTransfer ? deleteTransfer(id) : deleteTransaction(id) }}
                   onEdit={(t) => {
                     if (t.__type !== 'transfer') { setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id }); setShowForm(true) }
+                  }}
+                  onShare={(t) => {
+                    setEditTx({ ...t, category_id: t.category_id, wallet_id: t.wallet_id, _forceShare: true })
+                    setShowForm(true)
+                  }}
+                  onUnshare={async (t) => {
+                    await updateTransaction(t.id, {
+                      shared_to_household_id: null,
+                      household_category_id: null,
+                      household_wallet_id: null,
+                    })
                   }}
                 />
               )
@@ -446,10 +460,10 @@ export default function TransactionsPage() {
       {/* Transaction form */}
       {showForm && (
         <TransactionForm
+          userId={userId}
           categories={categories}
           wallets={wallets}
           editTx={editTx}
-          userId={userId}
           onSubmit={editTx ? (data) => {
             updateTransaction(editTx.id, data)
             setShowForm(false); setEditTx(null)
