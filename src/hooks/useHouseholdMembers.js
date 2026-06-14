@@ -67,11 +67,19 @@ export function useHouseholdMembers(householdId) {
     mutationFn: async ({ householdId, email, invitedBy }) => {
       // Validation
       if (!email || !email.includes('@')) throw new Error('Email tidak valid')
-      // Check if user is already a member
-      // (RLS will prevent duplicate, but let's give nice error message)
+
+      // Block self-invite: kalau inviter punya email yang sama dengan
+      // yang di-invite, tolak. Cegah admin yang nge-test invite ke
+      // email sendiri dari kena notif palsu.
+      const { data: { user: sbUser } } = await supabase.auth.getUser()
+      if (sbUser && sbUser.email && sbUser.email.toLowerCase() === email.trim().toLowerCase()) {
+        throw new Error('Ga bisa invite diri sendiri')
+      }
+      void invitedBy  // param kept for API compat, not used for the check
+
       const { data, error } = await supabase
         .from('household_invites')
-        .insert({ household_id: householdId, email: email.trim().toLowerCase(), invited_by: invitedBy })
+        .insert({ household_id: householdId, email: email.trim().toLowerCase(), invited_by: sbUser?.id })
         .select()
         .single()
       if (error) {
@@ -214,11 +222,15 @@ export function useMyPendingInvites(userId) {
     queryKey: ['pendingInvites', userId],
     queryFn: async () => {
       if (!userId) return []
-      // Use the RPC/select — RLS will filter to only my email
+      // RLS filters by email = current user. Extra filter: skip invites
+      // where the current user is the inviter (self-invites from
+      // admin testing) so admins don't get notifications for their
+      // own invites.
       const { data, error } = await supabase
         .from('household_invites')
         .select('*, households!household_invites_household_id_fkey(name)')
         .eq('status', 'pending')
+        .neq('invited_by', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data || []

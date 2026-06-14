@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS household_invites (
   invited_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  responded_at TIMESTAMPTZ
+  responded_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_household_invites_unique
@@ -140,6 +141,20 @@ DROP POLICY IF EXISTS "Users can view households they're a member of" ON househo
 CREATE POLICY "Users can view households they're a member of"
   ON households FOR SELECT
   USING (public.is_household_member(id));
+
+-- Invitees (pending) can also view the household name to make the
+-- invite banner readable. Falls back to "Household" otherwise.
+DROP POLICY IF EXISTS "Invitees can view households they have pending invites for" ON households;
+CREATE POLICY "Invitees can view households they have pending invites for"
+  ON households FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM household_invites
+      WHERE household_id = households.id
+        AND email = public.get_my_email()
+        AND status = 'pending'
+    )
+  );
 
 DROP POLICY IF EXISTS "Users can create a household" ON households;
 CREATE POLICY "Users can create a household"
