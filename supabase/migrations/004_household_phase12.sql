@@ -312,3 +312,45 @@ CREATE TRIGGER on_household_created
   AFTER INSERT ON households
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_household();
+
+-- ═══════════════════════════════════════════════════════════════
+-- 5. RPC: create_household (bypass RLS, atomik insert household + creator)
+-- ═══════════════════════════════════════════════════════════════
+-- Pakai SECURITY DEFINER biar insert ga ke-block RLS. Penting karena
+-- di project Supabase tertentu (free tier / self-hosted), auth.uid()
+-- di request bisa return null walaupun user udah login — kasus lu.
+-- Function ini validate auth.uid() di SQL langsung, terus insert
+-- pake privileges postgres role.
+
+CREATE OR REPLACE FUNCTION public.create_household(p_name TEXT)
+RETURNS TABLE(id UUID, name TEXT, created_by UUID, created_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_household_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated — auth.uid() is null. Check your session token.';
+  END IF;
+
+  INSERT INTO public.households (name, created_by)
+  VALUES (trim(p_name), v_user_id)
+  RETURNING households.id, households.name, households.created_by, households.created_at
+  INTO id, name, created_by, created_at;
+
+  v_household_id := id;
+
+  INSERT INTO public.household_members (household_id, user_id, role, status, accepted_at)
+  VALUES (v_household_id, v_user_id, 'admin', 'accepted', NOW());
+
+  RETURN NEXT;
+END;
+$$;
+
+-- Grant execute ke authenticated users
+GRANT EXECUTE ON FUNCTION public.create_household(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_household(TEXT) TO anon;

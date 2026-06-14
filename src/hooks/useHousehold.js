@@ -49,41 +49,19 @@ export function useHousehold(userIdProp) {
     }).catch(() => {})
   }
 
-  // Create household
+  // Create household — uses RPC that bypasses RLS, so we don't have to
+  // worry about the auth context being in sync. The RPC validates the
+  // user via auth.uid() inside SQL and inserts with the postgres role.
   const createMutation = useMutation({
     mutationFn: async ({ name }) => {
-      // Get authoritative user id from Supabase session, not Redux.
-      // This guarantees auth.uid() (used by RLS) matches created_by.
-      const { data: { user: sbUser }, error: sbErr } = await supabase.auth.getUser()
-      if (sbErr || !sbUser) {
-        throw new Error('Session expired — silakan login ulang')
-      }
-      const sbUserId = sbUser.id
-
-      // 1. Insert household
-      const { data: household, error: hErr } = await supabase
-        .from('households')
-        .insert({ name, created_by: sbUserId })
-        .select()
+      const { data, error } = await supabase
+        .rpc('create_household', { p_name: name })
         .single()
-      if (hErr) {
-        console.error('[createHousehold] insert failed', { name, sbUserId, error: hErr })
-        throw hErr
+      if (error) {
+        console.error('[createHousehold] RPC failed', error)
+        throw error
       }
-
-      // 2. Insert self as admin/accepted
-      const { error: mErr } = await supabase
-        .from('household_members')
-        .insert({
-          household_id: household.id,
-          user_id: sbUserId,
-          role: 'admin',
-          status: 'accepted',
-          accepted_at: new Date().toISOString(),
-        })
-      if (mErr) throw mErr
-
-      return household
+      return data
     },
     onSuccess: async (household) => {
       dispatch(setCurrentHouseholdId(household.id))
