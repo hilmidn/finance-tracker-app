@@ -4,6 +4,7 @@ import OfflineBanner from './OfflineBanner'
 import InstallBanner from './InstallBanner'
 import PendingInviteBanner from './PendingInviteBanner'
 import Header from './Header'
+import { useDataScope } from '../hooks/useDataScope'
 
 const tabsLeft = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -18,6 +19,17 @@ const tabsRight = [
 export default function Layout({ children, onSignOut }) {
   const location = useLocation()
   const isScan = location.pathname === '/scan'
+  const { isHousehold } = useDataScope()
+
+  // Personal = indigo. Household = violet. Applied to the active state
+  // across the bottom nav and the central scan FAB so the chrome reflects
+  // the active scope even on the first glance.
+  const accent = isHousehold ? 'violet' : 'indigo'
+  const activeClass = isHousehold
+    ? 'text-violet-600 bg-violet-50'
+    : 'text-indigo-600 bg-indigo-50'
+  const fabBg = isHousehold ? 'bg-violet-600 shadow-violet-200' : 'bg-indigo-600 shadow-indigo-200'
+  const activeText = isHousehold ? 'text-violet-600' : 'text-indigo-600'
 
   return (
     <div className="flex flex-col min-h-dvh max-w-lg mx-auto bg-gray-50">
@@ -38,7 +50,7 @@ export default function Layout({ children, onSignOut }) {
               end={to === '/'}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 px-3 py-1.5 text-xs font-medium transition-colors rounded-xl ${
-                  isActive ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-gray-700'
+                  isActive ? activeClass : 'text-gray-500 hover:text-gray-700'
                 }`
               }
             >
@@ -53,9 +65,7 @@ export default function Layout({ children, onSignOut }) {
             className="relative -mt-5 flex flex-col items-center"
           >
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all active:scale-90 ${
-              isScan
-                ? 'bg-indigo-600 shadow-indigo-200 scale-110'
-                : 'bg-indigo-600 shadow-indigo-200'
+              isScan ? `${fabBg} scale-110` : fabBg
             }`}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 7V5a2 2 0 0 1 2-2h2" />
@@ -66,7 +76,7 @@ export default function Layout({ children, onSignOut }) {
                 <path d="M12 7v10" />
               </svg>
             </div>
-            <span className={`text-[10px] font-semibold mt-0.5 ${isScan ? 'text-indigo-600' : 'text-gray-500'}`}>Scan</span>
+            <span className={`text-[10px] font-semibold mt-0.5 ${isScan ? activeText : 'text-gray-500'}`}>Scan</span>
           </NavLink>
 
           {/* Right tabs */}
@@ -76,7 +86,7 @@ export default function Layout({ children, onSignOut }) {
               to={to}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 px-3 py-1.5 text-xs font-medium transition-colors rounded-xl ${
-                  isActive ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-gray-700'
+                  isActive ? activeClass : 'text-gray-500 hover:text-gray-700'
                 }`
               }
             >

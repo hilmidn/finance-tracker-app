@@ -1,25 +1,23 @@
 import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeftRight, Plus, Wallet, TrendingUp, TrendingDown, PiggyBank, BarChart3 } from 'lucide-react'
+import { ArrowLeftRight, Plus, Wallet } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useWallets } from '../hooks/useWallets'
 import { useTransactions } from '../hooks/useTransactions'
-import { useHousehold } from '../hooks/useHousehold'
+import { useDataScope } from '../hooks/useDataScope'
 import TransactionItem from '../components/TransactionItem'
 import BalanceCard from '../components/BalanceCard'
 import TransactionForm from '../components/TransactionForm'
-import CreateHouseholdModal from '../components/CreateHouseholdModal'
 
 export default function DashboardPageInner({ userId }) {
   const user = useSelector((s) => s.auth.user)
   const { wallets, balances, loading: walletsLoading, totalBalance, totalSavings, totalNonSavings } = useWallets(userId)
   const { transactions, loading: txLoading, addTransaction, updateTransaction, deleteTransaction, deleteTransfer } = useTransactions(userId)
-  const { isMember, household, hasPendingInvite, loading: householdLoading } = useHousehold(userId)
+  const { isMember } = useDataScope()
 
   const [showForm, setShowForm] = useState(false)
-  const [showCreateHousehold, setShowCreateHousehold] = useState(false)
   const [editTx, setEditTx] = useState(null)
   const navigate = useNavigate()
 
@@ -46,16 +44,9 @@ export default function DashboardPageInner({ userId }) {
         walletCount={wallets.length}
       />
 
-      {/* CTA: Buat household / Lihat household */}
-      {!householdLoading && !isMember && !hasPendingInvite && (
-        <button
-          onClick={() => setShowCreateHousehold(true)}
-          className="w-full bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl p-4 hover:from-indigo-100 hover:to-violet-100 transition-colors text-left"
-        >
-          <p className="text-sm font-semibold text-indigo-700">Bikin Household? 🏠</p>
-          <p className="text-xs text-indigo-600 mt-0.5">Catat keuangan bareng pasangan/keluarga. Sharing dompet & transaksi.</p>
-        </button>
-      )}
+      {/* (No 'Bikin Household?' CTA here — the header pill in personal
+          mode already shows a '+ Buat Household' button. Keeping it on
+          the dashboard too would be redundant noise.) */}
 
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => setShowForm(true)}
@@ -152,10 +143,6 @@ export default function DashboardPageInner({ userId }) {
           }}
           onClose={() => { setShowForm(false); setEditTx(null) }}
         />
-      )}
-
-      {showCreateHousehold && (
-        <CreateHouseholdModal onClose={() => setShowCreateHousehold(false)} />
       )}
     </div>
   )
