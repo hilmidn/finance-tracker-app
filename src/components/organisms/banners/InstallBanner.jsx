@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { X, Download } from 'lucide-react'
+import { Button } from '../../atoms/Button'
 
 const STORAGE_KEY = 'install-banner-dismissed-v2'
 
@@ -124,13 +125,13 @@ export default function InstallBanner() {
 
         {/* Install button (non-iOS only) */}
         {!isIOS && (
-          <button
+          <Button
+            size="sm"
             onClick={handleInstall}
-            className="shrink-0 bg-indigo-600 text-white text-xs font-semibold px-4 py-2 rounded-xl active:scale-95 transition-all hover:bg-indigo-700 flex items-center gap-1.5"
+            leftIcon={<Download size={14} />}
           >
-            <Download size={14} />
             Install
-          </button>
+          </Button>
         )}
 
         {/* Close */}
