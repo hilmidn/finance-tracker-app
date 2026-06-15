@@ -2,6 +2,7 @@ import { Trash2, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useState } from 'react'
+import { Badge } from '../../atoms/Badge'
 import ConfirmModal from '../modals/ConfirmModal'
 
 /**
@@ -57,13 +58,11 @@ export default function HouseholdTransactionItem({ tx, onDelete, onEdit, current
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5">
             <p className="font-semibold text-sm text-gray-900 truncate">{catName}</p>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
-              isIncome ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'
-            }`}>
+            <Badge color={isIncome ? 'green' : 'red'}>
               {isIncome ? 'Masuk' : 'Keluar'}
-            </span>
+            </Badge>
           </div>
           {txData.note && <p className="text-xs text-gray-500 truncate mt-0.5">{txData.note}</p>}
           <p className="text-[11px] text-gray-400 mt-0.5">
