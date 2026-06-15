@@ -2,3 +2,4 @@
 export { FormField } from './FormField'
 export { FilterChip } from './FilterChip'
 export { MemberPicker } from './MemberPicker'
+export { TabBar } from './TabBar'
