@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { X, Mail, Users } from 'lucide-react'
+import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
+import { FormField } from '../../molecules/FormField'
 import { useHouseholdMembers } from '../../../hooks/useHouseholdMembers'
 
 export default function InviteMemberModal({ householdId, onClose }) {
@@ -44,21 +47,17 @@ export default function InviteMemberModal({ householdId, onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Email
-            </label>
-            <div className="relative">
-              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
+            <FormField label="Email">
+              <Input
                 type="email"
+                leftIcon={Mail}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nama@email.com"
                 autoFocus
                 required
-                className="w-full rounded-xl border border-gray-200 pl-10 pr-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
-            </div>
+            </FormField>
             <p className="text-xs text-gray-400 mt-1.5">
               Orang yang diundang harus sudah punya akun di aplikasi ini.
               Mereka akan melihat notifikasi undangan saat buka app.
@@ -77,13 +76,15 @@ export default function InviteMemberModal({ householdId, onClose }) {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
+            width="full"
+            size="lg"
+            loading={submitting}
             disabled={submitting || !email.trim()}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
-            {submitting ? 'Mengirim...' : 'Kirim Undangan'}
-          </button>
+            Kirim Undangan
+          </Button>
         </form>
       </div>
     </div>

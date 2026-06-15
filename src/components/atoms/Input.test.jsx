@@ -32,4 +32,11 @@ describe('Input', () => {
     render(<Input type="number" />)
     expect(screen.getByRole('spinbutton')).toBeInTheDocument()
   })
+
+  it('renders leftIcon with relative wrapper', () => {
+    const Icon = ({ size, className }) => <svg data-testid="li" width={size} className={className} />
+    render(<Input leftIcon={Icon} placeholder="with icon" />)
+    expect(screen.getByTestId('li')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('with icon').className).toMatch(/pl-10/)
+  })
 })

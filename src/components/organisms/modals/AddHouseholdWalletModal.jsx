@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { X, PiggyBank } from 'lucide-react'
+import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
+import { Switch } from '../../atoms/Switch'
+import { FormField } from '../../molecules/FormField'
 import { useHouseholdWallets } from '../../../hooks/useHouseholdWallets'
 
 const WALLET_TYPES = [
@@ -66,47 +70,45 @@ export default function AddHouseholdWalletModal({ householdId, onClose }) {
               ))}
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Dompet</label>
-            <input type="text" value={form.name}
+          <FormField label="Nama Dompet">
+            <Input type="text" value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder={form.type === 'cash' ? 'Dompet Dapur' : form.type === 'bank' ? 'BCA, Mandiri...' : 'GoPay, OVO...'} required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Icon (opsional)</label>
-            <input type="text" value={form.icon}
+              placeholder={form.type === 'cash' ? 'Dompet Dapur' : form.type === 'bank' ? 'BCA, Mandiri...' : 'GoPay, OVO...'} required />
+          </FormField>
+          <FormField label="Icon (opsional)">
+            <Input type="text" value={form.icon}
               onChange={e => setForm(f => ({ ...f, icon: e.target.value }))}
-              placeholder="👛 🏦 📱 💳" maxLength={10}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-          </div>
-          <div>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <button type="button" onClick={() => setForm(f => ({ ...f, is_savings: !f.is_savings }))}
-                className={`w-11 h-6 rounded-full transition-colors relative ${form.is_savings ? 'bg-amber-500' : 'bg-gray-200'}`}>
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${form.is_savings ? 'translate-x-5' : ''}`} />
-              </button>
-              <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                <PiggyBank size={16} className="text-amber-600" />
-                <span>Jadikan Tabungan</span>
-              </div>
-            </label>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Saldo Awal (Rp)</label>
-            <input type="number" inputMode="numeric" min="0" value={form.initial_balance}
-              onChange={e => setForm(f => ({ ...f, initial_balance: e.target.value }))} placeholder="0"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-          </div>
+              placeholder="👛 🏦 📱 💳" maxLength={10} />
+          </FormField>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <Switch
+              checked={form.is_savings}
+              onChange={v => setForm(f => ({ ...f, is_savings: v }))}
+              aria-label="Jadikan Tabungan"
+            />
+            <div className="flex items-center gap-1.5 text-sm text-gray-700">
+              <PiggyBank size={16} className="text-amber-600" />
+              <span>Jadikan Tabungan</span>
+            </div>
+          </label>
+          <FormField label="Saldo Awal (Rp)">
+            <Input type="number" inputMode="numeric" min="0" value={form.initial_balance}
+              onChange={e => setForm(f => ({ ...f, initial_balance: e.target.value }))} placeholder="0" />
+          </FormField>
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3">
               <p className="text-xs text-red-700">{error}</p>
             </div>
           )}
-          <button type="submit" disabled={submitting}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]">
-            {submitting ? 'Menyimpan...' : 'Tambah Dompet'}
-          </button>
+          <Button
+            type="submit"
+            width="full"
+            size="lg"
+            loading={submitting}
+            disabled={submitting}
+          >
+            Tambah Dompet
+          </Button>
         </form>
       </div>
     </div>

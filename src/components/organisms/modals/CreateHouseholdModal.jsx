@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { X, Home } from 'lucide-react'
+import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
+import { FormField } from '../../molecules/FormField'
 import { useHousehold } from '../../../hooks/useHousehold'
 
 export default function CreateHouseholdModal({ onClose }) {
@@ -40,18 +43,16 @@ export default function CreateHouseholdModal({ onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Nama Household
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="cth: Rumah Tangga, Keluarga"
-              autoFocus
-              required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <FormField label="Nama Household">
+              <Input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="cth: Rumah Tangga, Keluarga"
+                autoFocus
+                required
+              />
+            </FormField>
             <p className="text-xs text-gray-400 mt-1.5">
               Nama ini akan terlihat oleh pasangan/anggota yang kamu undang.
             </p>
@@ -70,13 +71,15 @@ export default function CreateHouseholdModal({ onClose }) {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
+            width="full"
+            size="lg"
+            loading={submitting}
             disabled={submitting || !name.trim()}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
-            {submitting ? 'Membuat...' : 'Buat Household'}
-          </button>
+            Buat Household
+          </Button>
         </form>
       </div>
     </div>
