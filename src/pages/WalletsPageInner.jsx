@@ -3,7 +3,7 @@ import { Plus, Wallet, Building2, Smartphone, Trash2, Pencil, ArrowLeftRight, X,
 import { useWallets } from '../hooks/useWallets'
 import { useTransfers } from '../hooks/useTransfers'
 import { useTransactions } from '../hooks/useTransactions'
-import TransferForm from '../components/TransferForm'
+import TransferForm from '../components/organisms/forms/TransferForm'
 import ConfirmModal from '../components/ConfirmModal'
 
 const WALLET_ICONS = { cash: '👛', bank: '🏦', 'e-wallet': '📱' }

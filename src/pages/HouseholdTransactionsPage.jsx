@@ -4,7 +4,7 @@ import { Plus, ArrowLeftRight, BarChart3, List, TrendingUp, TrendingDown, Eye } 
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import HouseholdTransactionItem from '../components/HouseholdTransactionItem'
-import HouseholdTransactionForm from '../components/HouseholdTransactionForm'
+import HouseholdTransactionForm from '../components/organisms/forms/HouseholdTransactionForm'
 import MonthPicker from '../components/molecules/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers'

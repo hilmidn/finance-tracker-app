@@ -4,7 +4,7 @@ import { Plus, ArrowLeftRight, Download, BarChart3, List, TrendingUp, TrendingDo
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import TransactionItem from '../components/TransactionItem'
-import TransactionForm from '../components/TransactionForm'
+import TransactionForm from '../components/organisms/forms/TransactionForm'
 import MonthPicker from '../components/molecules/MonthPicker'
 import { useTransactions, useSummary, useCategoryBreakdown, useMonthlySavings } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'

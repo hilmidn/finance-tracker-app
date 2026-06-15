@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, ArrowLeftRight, Home } from 'lucide-react'
-import { useHouseholdWalletsForTransfer } from '../hooks/useTransfers'
+import { useHouseholdWalletsForTransfer } from '../../../hooks/useTransfers'
 
 /**
  * Transfer form. Supports two destination types:

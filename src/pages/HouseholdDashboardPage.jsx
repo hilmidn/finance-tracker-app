@@ -10,7 +10,7 @@ import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
 import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
 import HouseholdWalletBalanceCard from '../components/HouseholdWalletBalanceCard'
 import HouseholdTransactionItem from '../components/HouseholdTransactionItem'
-import HouseholdTransactionForm from '../components/HouseholdTransactionForm'
+import HouseholdTransactionForm from '../components/organisms/forms/HouseholdTransactionForm'
 import AddHouseholdWalletModal from '../components/AddHouseholdWalletModal'
 
 export default function HouseholdDashboardPage({ scope }) {

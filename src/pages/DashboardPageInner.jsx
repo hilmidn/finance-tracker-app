@@ -8,7 +8,7 @@ import { useWallets } from "../hooks/useWallets";
 import { useTransactions, useSummary } from "../hooks/useTransactions";
 import TransactionItem from "../components/TransactionItem";
 import BalanceCard from "../components/BalanceCard";
-import TransactionForm from "../components/TransactionForm";
+import TransactionForm from "../components/organisms/forms/TransactionForm";
 import { useCategories } from "../hooks/useCategories";
 
 export default function DashboardPageInner({ userId }) {
