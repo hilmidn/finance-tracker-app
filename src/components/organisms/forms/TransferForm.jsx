@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import { X, ArrowLeftRight, Home } from 'lucide-react'
+import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
+import { Select } from '../../atoms/Select'
+import { FormField } from '../../molecules/FormField'
 import { useHouseholdWalletsForTransfer } from '../../../hooks/useTransfers'
 
 /**
@@ -75,23 +79,16 @@ export default function TransferForm({ userId, wallets, onSubmit, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* From wallet */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Dari Dompet</label>
-            <select
-              value={fromId}
-              onChange={e => setFromId(e.target.value)}
-              required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
+          <FormField label="Dari Dompet">
+            <Select value={fromId} onChange={e => setFromId(e.target.value)} required>
               <option value="">Pilih dompet sumber...</option>
               {wallets.map(w => (
                 <option key={w.id} value={w.id}>
                   {w.icon || '💳'} {w.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
           {/* Destination type toggle (only if user has household) */}
           {hasHousehold && (
@@ -119,41 +116,31 @@ export default function TransferForm({ userId, wallets, onSubmit, onClose }) {
 
           {/* To wallet (personal) */}
           {destinationType === 'personal' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Ke Dompet</label>
-              <select
-                value={toId}
-                onChange={e => setToId(e.target.value)}
-                required
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
+            <FormField label="Ke Dompet">
+              <Select value={toId} onChange={e => setToId(e.target.value)} required>
                 <option value="">Pilih dompet tujuan...</option>
                 {wallets.map(w => (
                   <option key={w.id} value={w.id} disabled={w.id === parseInt(fromId)}>
                     {w.icon || '💳'} {w.name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
           )}
 
           {/* To wallet (household) */}
           {destinationType === 'household' && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Ke Dompet Household</label>
-              <select
-                value={toHouseholdId}
-                onChange={e => setToHouseholdId(e.target.value)}
-                required
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">Pilih dompet household...</option>
-                {householdWallets.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.icon || '💳'} {w.name}
-                  </option>
-                ))}
-              </select>
+              <FormField label="Ke Dompet Household">
+                <Select value={toHouseholdId} onChange={e => setToHouseholdId(e.target.value)} required>
+                  <option value="">Pilih dompet household...</option>
+                  {householdWallets.map(w => (
+                    <option key={w.id} value={w.id}>
+                      {w.icon || '💳'} {w.name}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
               <p className="text-[10px] text-purple-600 mt-1">
                 Otomatis tercatat sebagai pemasukan household
               </p>
@@ -174,10 +161,8 @@ export default function TransferForm({ userId, wallets, onSubmit, onClose }) {
             </div>
           )}
 
-          {/* Amount */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Jumlah (Rp)</label>
-            <input
+          <FormField label="Jumlah (Rp)">
+            <Input
               type="number"
               inputMode="numeric"
               min="1"
@@ -185,40 +170,36 @@ export default function TransferForm({ userId, wallets, onSubmit, onClose }) {
               onChange={e => setAmount(e.target.value)}
               placeholder="0"
               required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-          </div>
+          </FormField>
 
-          {/* Date + description */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Tanggal</label>
-              <input
+            <FormField label="Tanggal">
+              <Input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Catatan</label>
-              <input
+            </FormField>
+            <FormField label="Catatan">
+              <Input
                 type="text"
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder={destinationType === 'household' ? 'Iuran bulanan' : 'Isi saldo...'}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
-            </div>
+            </FormField>
           </div>
 
-          <button
+          <Button
             type="submit"
+            width="full"
+            size="lg"
+            loading={submitting}
             disabled={submitting || !canSubmit}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
-            {submitting ? 'Memproses...' : 'Transfer'}
-          </button>
+            Transfer
+          </Button>
         </form>
       </div>
     </div>
