@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux'
 import { BarChart3, Lightbulb, TrendingUp, TrendingDown, PiggyBank, ChartPie } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
-import MonthPicker from '../components/MonthPicker'
+import MonthPicker from '../components/molecules/MonthPicker'
 import { useTransactions, useSummary, useCategoryBreakdown, useMonthlySavings } from '../hooks/useTransactions'
 
 export default function AnalysisPage() {
