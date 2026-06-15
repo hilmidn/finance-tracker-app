@@ -55,4 +55,25 @@ describe('Button', () => {
     render(<Button leftIcon={<Icon />}>Test</Button>)
     expect(screen.getByTestId('test-icon')).toBeInTheDocument()
   })
+
+  it('forwards ref', () => {
+    const ref = { current: null }
+    render(<Button ref={ref}>Ref</Button>)
+    expect(ref.current).toBeInstanceOf(HTMLButtonElement)
+  })
+
+  it('renders full width when width="full"', () => {
+    render(<Button width="full">Wide</Button>)
+    expect(screen.getByRole('button').className).toMatch(/w-full/)
+  })
+
+  it('respects type="submit"', () => {
+    render(<form><Button type="submit">Submit</Button></form>)
+    expect(screen.getByRole('button')).toHaveAttribute('type', 'submit')
+  })
+
+  it('renders Spinner atom when loading', () => {
+    render(<Button loading>Load</Button>)
+    expect(screen.getByRole('status')).toBeInTheDocument()
+  })
 })

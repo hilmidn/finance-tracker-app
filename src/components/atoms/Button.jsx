@@ -1,4 +1,5 @@
 import { forwardRef } from 'react'
+import { Spinner } from './Spinner'
 
 const variantStyles = {
   primary: 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95',
@@ -8,9 +9,14 @@ const variantStyles = {
 }
 
 const sizeStyles = {
-  sm: 'py-2 px-3 text-xs',
-  md: 'py-3 px-4 text-sm',
-  lg: 'py-3.5 px-4 text-sm',
+  sm: 'h-9 px-3 text-xs',
+  md: 'h-12 px-4 text-sm',
+  lg: 'h-14 px-5 text-base',
+}
+
+const widthStyles = {
+  auto: '',
+  full: 'w-full',
 }
 
 /**
@@ -19,16 +25,18 @@ const sizeStyles = {
  * Props:
  * - variant: 'primary' | 'secondary' | 'danger' | 'ghost' (default: 'primary')
  * - size: 'sm' | 'md' | 'lg' (default: 'md')
- * - loading: shows spinner and disables click
+ * - width: 'auto' | 'full' (default: 'auto')
+ * - loading: shows Spinner atom and disables click
  * - leftIcon, rightIcon: ReactNode
- * - All other <button> props supported
+ * - All other <button> props supported (incl. type="submit")
  */
 export const Button = forwardRef(function Button(
   {
     children,
     variant = 'primary',
     size = 'md',
-    type = 'button',
+    width = 'auto',
+    type,
     leftIcon,
     rightIcon,
     loading = false,
@@ -40,7 +48,7 @@ export const Button = forwardRef(function Button(
   ref
 ) {
   const base = 'inline-flex items-center justify-center gap-1.5 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed'
-  const cls = [base, variantStyles[variant], sizeStyles[size], className].filter(Boolean).join(' ')
+  const cls = [base, variantStyles[variant], sizeStyles[size], widthStyles[width], className].filter(Boolean).join(' ')
 
   const handleClick = (e) => {
     if (disabled || loading) return
@@ -50,13 +58,13 @@ export const Button = forwardRef(function Button(
   return (
     <button
       ref={ref}
-      type={type}
+      type={type || 'button'}
       className={cls}
       disabled={disabled || loading}
       onClick={handleClick}
       {...rest}
     >
-      {loading ? <span className="animate-spin" aria-hidden>⏳</span> : leftIcon}
+      {loading ? <Spinner size={16} /> : leftIcon}
       {children}
       {rightIcon}
     </button>
