@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Home, Check, XIcon } from 'lucide-react'
+import { Button } from '../../atoms/Button'
 import { useHouseholdMembers } from '../../../hooks/useHouseholdMembers'
 import ConfirmModal from './ConfirmModal'
 
@@ -86,20 +87,27 @@ export default function AcceptInviteModal({ invite, userId, onClose, onAccepted 
           )}
 
           <div className="grid grid-cols-2 gap-2">
-            <button
+            <Button
+              variant="secondary"
+              size="lg"
+              width="full"
               onClick={() => setConfirmReject(true)}
               disabled={submitting}
-              className="flex items-center justify-center gap-1.5 bg-gray-100 text-gray-700 rounded-xl py-3 font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 active:scale-[0.98]"
+              leftIcon={<XIcon size={16} />}
             >
-              <XIcon size={16} /> Tolak
-            </button>
-            <button
+              Tolak
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              width="full"
               onClick={handleAccept}
               disabled={submitting}
-              className="flex items-center justify-center gap-1.5 bg-indigo-600 text-white rounded-xl py-3 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
+              loading={submitting}
+              leftIcon={<Check size={16} />}
             >
-              <Check size={16} /> {submitting ? 'Memproses...' : 'Terima'}
-            </button>
+              Terima
+            </Button>
           </div>
         </div>
       </div>

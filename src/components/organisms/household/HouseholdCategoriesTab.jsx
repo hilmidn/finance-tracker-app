@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, Tag } from 'lucide-react'
+import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
 import { useHouseholdCategories } from '../../../hooks/useHouseholdCategories'
 import ConfirmModal from '../modals/ConfirmModal'
 
@@ -85,23 +87,24 @@ export default function HouseholdCategoriesTab({ householdId }) {
       {showAdd ? (
         <div className="space-y-2">
           <div className="flex gap-2">
-            <input type="text" value={newCat} onChange={e => setNewCat(e.target.value)}
-              placeholder="Nama kategori baru" autoFocus
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white" />
-            <button onClick={handleAdd}
-              className="bg-indigo-600 text-white px-4 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors">Simpan</button>
-            <button onClick={() => { setShowAdd(false); setNewCat(''); setAddError(null) }}
-              className="px-3 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">Batal</button>
+            <Input type="text" value={newCat} onChange={e => setNewCat(e.target.value)}
+              placeholder="Nama kategori baru" autoFocus className="flex-1" />
+            <Button onClick={handleAdd}>Simpan</Button>
+            <Button variant="ghost" onClick={() => { setShowAdd(false); setNewCat(''); setAddError(null) }}>Batal</Button>
           </div>
           {addError && (
             <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{addError}</p>
           )}
         </div>
       ) : (
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center justify-center gap-2 w-full py-3 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors active:scale-[0.98]">
-          <Plus size={18} /> Tambah Kategori
-        </button>
+        <Button
+          onClick={() => setShowAdd(true)}
+          width="full"
+          className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+          leftIcon={<Plus size={18} />}
+        >
+          Tambah Kategori
+        </Button>
       )}
 
       <ConfirmModal
