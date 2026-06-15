@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Mail, X } from 'lucide-react'
-import { useMyPendingInvites } from '../hooks/useHouseholdMembers'
-import AcceptInviteModal from './AcceptInviteModal'
+import { useMyPendingInvites } from '../../../hooks/useHouseholdMembers'
+import AcceptInviteModal from '../modals/AcceptInviteModal'
 
 /**
  * Top banner shown when current user has pending household invites.

@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Plus, Wallet, Trash2, Pencil, X, PiggyBank } from 'lucide-react'
 import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
-import HouseholdWalletBalanceCard from '../components/HouseholdWalletBalanceCard'
-import AddHouseholdWalletModal from '../components/AddHouseholdWalletModal'
-import ConfirmModal from '../components/ConfirmModal'
+import HouseholdWalletBalanceCard from '../components/organisms/cards/HouseholdWalletBalanceCard'
+import AddHouseholdWalletModal from '../components/organisms/modals/AddHouseholdWalletModal'
+import ConfirmModal from '../components/organisms/modals/ConfirmModal'
 
 const WALLET_ICONS = { cash: '👛', bank: '🏦', 'e-wallet': '📱' }
 const WALLET_TYPES = [

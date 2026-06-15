@@ -4,7 +4,7 @@ import { useWallets } from '../hooks/useWallets'
 import { useTransfers } from '../hooks/useTransfers'
 import { useTransactions } from '../hooks/useTransactions'
 import TransferForm from '../components/organisms/forms/TransferForm'
-import ConfirmModal from '../components/ConfirmModal'
+import ConfirmModal from "../components/organisms/modals/ConfirmModal";
 
 const WALLET_ICONS = { cash: '👛', bank: '🏦', 'e-wallet': '📱' }
 const WALLET_TYPES = [

@@ -8,10 +8,10 @@ import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
 import { useHouseholdTransactions } from '../hooks/useHouseholdTransactions'
 import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
 import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
-import HouseholdWalletBalanceCard from '../components/HouseholdWalletBalanceCard'
-import HouseholdTransactionItem from '../components/HouseholdTransactionItem'
+import HouseholdWalletBalanceCard from '../components/organisms/cards/HouseholdWalletBalanceCard'
+import HouseholdTransactionItem from '../components/organisms/list/HouseholdTransactionItem'
 import HouseholdTransactionForm from '../components/organisms/forms/HouseholdTransactionForm'
-import AddHouseholdWalletModal from '../components/AddHouseholdWalletModal'
+import AddHouseholdWalletModal from '../components/organisms/modals/AddHouseholdWalletModal'
 
 export default function HouseholdDashboardPage({ scope }) {
   const user = useSelector((s) => s.auth.user)

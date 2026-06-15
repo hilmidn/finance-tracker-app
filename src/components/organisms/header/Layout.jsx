@@ -1,10 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { LayoutDashboard, ArrowLeftRight, Wallet, Settings } from 'lucide-react'
-import OfflineBanner from './OfflineBanner'
-import InstallBanner from './InstallBanner'
-import PendingInviteBanner from './PendingInviteBanner'
+import OfflineBanner from '../banners/OfflineBanner'
+import InstallBanner from '../banners/InstallBanner'
+import PendingInviteBanner from '../banners/PendingInviteBanner'
 import Header from './Header'
-import { useDataScope } from '../hooks/useDataScope'
+import { useDataScope } from '../../../hooks/useDataScope'
 
 const tabsLeft = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },

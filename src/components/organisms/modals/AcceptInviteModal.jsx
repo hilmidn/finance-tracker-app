@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, Home, Check, XIcon } from 'lucide-react'
-import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
+import { useHouseholdMembers } from '../../../hooks/useHouseholdMembers'
 import ConfirmModal from './ConfirmModal'
 
 export default function AcceptInviteModal({ invite, userId, onClose, onAccepted }) {

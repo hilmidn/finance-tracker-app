@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, PiggyBank } from 'lucide-react'
-import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
+import { useHouseholdWallets } from '../../../hooks/useHouseholdWallets'
 
 const WALLET_TYPES = [
   { value: 'cash', label: 'Tunai', icon: '👛' },

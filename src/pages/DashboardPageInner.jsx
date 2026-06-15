@@ -6,8 +6,8 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { useWallets } from "../hooks/useWallets";
 import { useTransactions, useSummary } from "../hooks/useTransactions";
-import TransactionItem from "../components/TransactionItem";
-import BalanceCard from "../components/BalanceCard";
+import TransactionItem from "../components/organisms/list/TransactionItem";
+import BalanceCard from "../components/organisms/cards/BalanceCard";
 import TransactionForm from "../components/organisms/forms/TransactionForm";
 import { useCategories } from "../hooks/useCategories";
 

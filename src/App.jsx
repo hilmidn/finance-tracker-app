@@ -1,6 +1,6 @@
 import { useSelector } from 'react-redux'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Layout from './components/Layout'
+import Layout from './components/organisms/header/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'

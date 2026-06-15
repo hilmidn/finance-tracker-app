@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, Home } from 'lucide-react'
-import { useHousehold } from '../hooks/useHousehold'
+import { useHousehold } from '../../../hooks/useHousehold'
 
 export default function CreateHouseholdModal({ onClose }) {
   const [name, setName] = useState('')

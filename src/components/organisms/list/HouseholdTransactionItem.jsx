@@ -2,7 +2,7 @@ import { Trash2, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useState } from 'react'
-import ConfirmModal from './ConfirmModal'
+import ConfirmModal from '../modals/ConfirmModal'
 
 /**
  * Display a single household transaction (household-ledger only).

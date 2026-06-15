@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, Mail, Users } from 'lucide-react'
-import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
+import { useHouseholdMembers } from '../../../hooks/useHouseholdMembers'
 
 export default function InviteMemberModal({ householdId, onClose }) {
   const [email, setEmail] = useState('')

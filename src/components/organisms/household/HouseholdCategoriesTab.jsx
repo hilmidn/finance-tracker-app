@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, Tag } from 'lucide-react'
-import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
-import ConfirmModal from './ConfirmModal'
+import { useHouseholdCategories } from '../../../hooks/useHouseholdCategories'
+import ConfirmModal from '../modals/ConfirmModal'
 
 export default function HouseholdCategoriesTab({ householdId }) {
   const [activeTab, setActiveTab] = useState('pengeluaran')

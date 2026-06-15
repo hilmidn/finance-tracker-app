@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import { useHousehold } from "../hooks/useHousehold";
 import { useHouseholdMembers } from "../hooks/useHouseholdMembers";
-import MemberList from "../components/MemberList";
-import HouseholdCategoriesTab from "../components/HouseholdCategoriesTab";
-import InviteMemberModal from "../components/InviteMemberModal";
-import ConfirmModal from "../components/ConfirmModal";
+import MemberList from "../components/organisms/list/MemberList";
+import HouseholdCategoriesTab from "../components/organisms/household/HouseholdCategoriesTab";
+import InviteMemberModal from "../components/organisms/modals/InviteMemberModal";
+import ConfirmModal from "../components/organisms/modals/ConfirmModal";
 
 export default function HouseholdSettingsPage() {
   const user = useSelector((s) => s.auth.user);

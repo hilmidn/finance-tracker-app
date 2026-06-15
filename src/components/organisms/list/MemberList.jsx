@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Crown, MoreVertical, X, UserCog, UserMinus, Eye } from 'lucide-react'
-import { useHouseholdMembers } from '../hooks/useHouseholdMembers'
-import ConfirmModal from './ConfirmModal'
+import { useHouseholdMembers } from '../../../hooks/useHouseholdMembers'
+import ConfirmModal from '../modals/ConfirmModal'
 
 /**
  * List of household members with action menu (kick, transfer ownership)

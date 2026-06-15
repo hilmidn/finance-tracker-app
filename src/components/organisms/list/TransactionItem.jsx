@@ -2,7 +2,7 @@ import { Trash2, Pencil, ArrowLeftRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { useState } from 'react'
-import ConfirmModal from './ConfirmModal'
+import ConfirmModal from '../modals/ConfirmModal'
 
 /**
  * Display a single personal transaction (income/expense/transfer).

@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { User, Home, LogOut, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useDataScope } from '../hooks/useDataScope'
-import { clearAuth } from '../store/authSlice'
-import CreateHouseholdModal from './CreateHouseholdModal'
+import { useDataScope } from '../../../hooks/useDataScope'
+import { useHousehold } from '../../../hooks/useHousehold'
+import CreateHouseholdModal from '../modals/CreateHouseholdModal'
 
 /**
  * Sticky top header.

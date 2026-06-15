@@ -5,8 +5,8 @@ import { useDataScope } from '../hooks/useDataScope'
 import { useCategories } from '../hooks/useCategories'
 import { useHouseholdCategories } from '../hooks/useHouseholdCategories'
 import { useHousehold } from '../hooks/useHousehold'
-import CreateHouseholdModal from '../components/CreateHouseholdModal'
-import ConfirmModal from '../components/ConfirmModal'
+import CreateHouseholdModal from "../components/organisms/modals/CreateHouseholdModal";
+import ConfirmModal from "../components/organisms/modals/ConfirmModal";
 
 export default function SettingsPage({ onSignOut }) {
   const userId = useSelector((s) => s.auth.user?.id)

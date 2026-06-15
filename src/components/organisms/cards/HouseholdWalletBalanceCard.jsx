@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
-import { useHouseholdWallets } from '../hooks/useHouseholdWallets'
+import { useHouseholdWallets } from '../../../hooks/useHouseholdWallets'
 
 /**
  * Balance card untuk household.
