@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Crown, MoreVertical, X, UserCog, UserMinus, Eye } from 'lucide-react'
+import { Switch } from '../../atoms/Switch'
 import { useHouseholdMembers } from '../../../hooks/useHouseholdMembers'
 import ConfirmModal from '../modals/ConfirmModal'
 
@@ -216,26 +217,13 @@ export default function MemberList({ householdId }) {
                   {isMe ? 'Bagikan transaksi pribadi' : shareOn ? 'Berbagi transaksi pribadi' : 'Tidak berbagi'}
                 </span>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={shareOn}
-                aria-label={isMe ? 'Toggle bagikan transaksi pribadi' : 'Status share'}
+              <Switch
+                checked={shareOn}
                 disabled={!isMe || isSettingSharePreference}
-                onClick={() => handleToggleShare(m)}
+                onChange={() => handleToggleShare(m)}
+                aria-label={isMe ? 'Toggle bagikan transaksi pribadi' : 'Status share'}
                 title={!isMe ? 'Hanya yang bisa mengatur preference masing-masing' : ''}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                  shareOn ? 'bg-purple-500' : 'bg-gray-200'
-                } ${!isMe ? 'opacity-50 cursor-not-allowed' : ''} ${
-                  isMe && !isSettingSharePreference ? 'cursor-pointer' : ''
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                    shareOn ? 'translate-x-4' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
+              />
             </div>
           </div>
         )
