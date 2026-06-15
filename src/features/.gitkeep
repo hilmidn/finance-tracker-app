@@ -1,0 +1,2 @@
+// Placeholder for future feature-specific modules (hooks, slices, services).
+// All current hooks stay in src/hooks/ for now.
