@@ -1,2 +1,2 @@
 // Atoms — universal UI primitives
-export {}
+export { Button } from './Button'
