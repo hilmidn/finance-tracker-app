@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { User, Home, LogOut, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { Button } from '../../atoms/Button'
 import { useDataScope } from '../../../hooks/useDataScope'
 import { useHousehold } from '../../../hooks/useHousehold'
 import CreateHouseholdModal from '../modals/CreateHouseholdModal'
@@ -56,12 +57,13 @@ export default function Header({ onSignOut }) {
       </button>
     </div>
   ) : (
-    <button
+    <Button
+      size="sm"
       onClick={() => setShowCreate(true)}
-      className="text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-full px-3 py-1 transition-colors"
+      className="text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-full px-3"
     >
       + Buat Household
-    </button>
+    </Button>
   )
 
   const handleSignOut = () => {

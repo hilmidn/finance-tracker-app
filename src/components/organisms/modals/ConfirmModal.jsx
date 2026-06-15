@@ -1,4 +1,5 @@
 import { AlertTriangle, X, Trash2, LogOut } from 'lucide-react'
+import { Button } from '../../atoms/Button'
 
 /**
  * Reusable confirmation modal — replaces native `confirm()` and `alert()`.
@@ -34,9 +35,6 @@ export default function ConfirmModal({
 
   const isDanger = variant === 'danger'
   const Icon = isDanger ? Trash2 : LogOut
-  const confirmColor = isDanger
-    ? 'bg-red-600 hover:bg-red-700'
-    : 'bg-indigo-600 hover:bg-indigo-700'
   const iconBg = isDanger ? 'bg-red-50' : 'bg-indigo-50'
   const iconColor = isDanger ? 'text-red-600' : 'text-indigo-600'
 
@@ -93,20 +91,25 @@ export default function ConfirmModal({
 
         {/* Footer */}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="lg"
+            width="full"
             onClick={onClose}
             disabled={loading}
-            className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
             {cancelText}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={isDanger ? 'danger' : 'primary'}
+            size="lg"
+            width="full"
             onClick={handleConfirm}
             disabled={loading}
-            className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50 ${confirmColor}`}
+            loading={loading}
           >
-            {loading ? 'Memproses...' : confirmText}
-          </button>
+            {confirmText}
+          </Button>
         </div>
       </div>
     </div>
