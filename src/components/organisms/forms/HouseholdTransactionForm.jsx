@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
+import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
+import { Select } from '../../atoms/Select'
+import { Textarea } from '../../atoms/Textarea'
+import { FormField } from '../../molecules/FormField'
 
 /**
  * Form for adding/editing household transactions.
@@ -94,41 +99,33 @@ export default function HouseholdTransactionForm({
             </button>
           </div>
 
-          {/* Category */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Kategori Household</label>
-            <select
+          <FormField label="Kategori Household">
+            <Select
               value={categoryId}
               onChange={e => setCategoryId(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Pilih kategori...</option>
               {catList.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
-          {/* Wallet */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Dompet Household</label>
-            <select
+          <FormField label="Dompet Household">
+            <Select
               value={walletId}
               onChange={e => setWalletId(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Pilih dompet (opsional)...</option>
               {walletList.map(w => (
                 <option key={w.id} value={w.id}>{w.icon || '💳'} {w.name}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
-          {/* Amount */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Jumlah (Rp)</label>
-            <input
+          <FormField label="Jumlah (Rp)">
+            <Input
               type="number"
               inputMode="numeric"
               min="1"
@@ -136,40 +133,35 @@ export default function HouseholdTransactionForm({
               onChange={e => setAmount(e.target.value)}
               placeholder="0"
               required
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-          </div>
+          </FormField>
 
-          {/* Date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Tanggal</label>
-            <input
+          <FormField label="Tanggal">
+            <Input
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-          </div>
+          </FormField>
 
-          {/* Note */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Catatan</label>
-            <textarea
+          <FormField label="Catatan">
+            <Textarea
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="Opsional..."
               rows={3}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
             />
-          </div>
+          </FormField>
 
-          <button
+          <Button
             type="submit"
+            width="full"
+            size="lg"
+            loading={submitting}
             disabled={submitting}
-            className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 active:scale-[0.98]"
           >
-            {submitting ? 'Menyimpan...' : editTx ? 'Simpan Perubahan' : 'Simpan'}
-          </button>
+            {editTx ? 'Simpan Perubahan' : 'Simpan'}
+          </Button>
         </form>
       </div>
     </div>
